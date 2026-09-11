@@ -28,6 +28,7 @@ jobs:
         uses: chickensoft-games/setup-godot@v2
         with:
           version: 4.7.2
+          use-dotnet: false
           include-templates: true
       - name: Export web build
         run: godot --headless --path . --export-release "Web" site/index.html
