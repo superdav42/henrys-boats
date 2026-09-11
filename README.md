@@ -22,6 +22,11 @@ Run: godot --path .
 
 Headless smoke check: godot --headless --path . --quit-after 1
 
+## Play in a browser
+
+Pushes to `main` export the Web preset and deploy it to GitHub Pages. The
+workflow publishes the generated `site/` directory; it is not committed.
+
 ## Unit roles
 
 - Patrol Boat/PT: cheap, fast close-range boat.
