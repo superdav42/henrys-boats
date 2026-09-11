@@ -31,7 +31,7 @@ jobs:
           use-dotnet: false
           include-templates: true
       - name: Export web build
-        run: godot --headless --path . --export-release "Web" site/index.html
+        run: mkdir -p site && godot --headless --path . --export-release "Web" site/index.html
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
