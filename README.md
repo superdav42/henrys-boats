@@ -30,6 +30,21 @@ A Godot 4.7 2D mobile prototype for a turn-based boat combat game on a water gri
 - End your turn to let the enemy move or attack.
 - Income each turn is based on fleet size and total kills, with a bounty when you sink an enemy.
 
+## Custom maps
+
+Use **Map Editor** during a match to create a working copy of a map. Choose an
+approved square size, paint Water, Reef, and Mountain terrain, then place one
+port for every consecutive team ID from 0 and optional starting units. A valid
+map has 2–8 ports, unique port and unit cells, and no surface unit on a
+mountain. Set the starting money before saving or using the map.
+
+Saved maps live under Godot's `user://maps/` directory on native builds. Saving
+an existing name requires the visible Replace option, and deleting a map
+requires its own confirmation. The editor's JSON field is the portable format:
+export to copy a version-1 JSON document, or paste JSON to import it. Invalid,
+malformed, or future-version JSON is rejected without replacing the working or
+saved map. Cancel discards only the editor's working copy.
+
 ## Requirements
 
 - Godot 4.7.x

@@ -1,6 +1,8 @@
 extends Node2D
 
 const GameStateResource = preload("res://scripts/game_state.gd")
+const TeamDataResource = preload("res://scripts/team_data.gd")
+const MapEditorScene = preload("res://scenes/map_editor.tscn")
 
 const UNIT_STATS := {
 	"Patrol": {"cost": 100, "hp": 3, "move": 3, "range": 1, "damage": 1, "short": "PT", "air": false, "target": "any"},
@@ -17,6 +19,7 @@ var selected_unit_id := -1
 var kills := 0
 var turn := 1
 var game_over := false
+var map_editor
 
 @onready var board = $MapBoard
 @onready var status_label: Label = $Hud/StatusLabel
@@ -29,6 +32,7 @@ var game_over := false
 @onready var jet_button: Button = $Hud/AirPanel/JetButton
 @onready var fighter_button: Button = $Hud/AirPanel/FighterButton
 @onready var bomber_button: Button = $Hud/AirPanel/BomberButton
+@onready var map_editor_button: Button = $Hud/MapEditorButton
 
 func _ready() -> void:
 	state = GameStateResource.new()
@@ -48,6 +52,42 @@ func _connect_buttons() -> void:
 	jet_button.pressed.connect(_build_air_from_selected_ac.bind("Jet"))
 	fighter_button.pressed.connect(_build_air_from_selected_ac.bind("Fighter"))
 	bomber_button.pressed.connect(_build_air_from_selected_ac.bind("Bomber"))
+	map_editor_button.pressed.connect(_open_map_editor)
+
+func _open_map_editor() -> void:
+	if map_editor != null:
+		return
+	map_editor = MapEditorScene.instantiate()
+	add_child(map_editor)
+	map_editor.cancelled.connect(_close_map_editor)
+	map_editor.map_selected.connect(_start_custom_match)
+	$Hud.visible = false
+
+func _close_map_editor() -> void:
+	if map_editor == null:
+		return
+	map_editor.queue_free()
+	map_editor = null
+	$Hud.visible = true
+
+func _start_custom_match(map_data) -> void:
+	if map_data == null or not map_data.is_valid():
+		return
+	state = GameStateResource.new()
+	state.map_data = map_data
+	state.teams = TeamDataResource.create_teams(map_data.ports.size(), map_data.starting_money)
+	for unit in map_data.starting_units:
+		var stats: Dictionary = UNIT_STATS[unit["kind"]]
+		state.add_unit(unit["kind"], unit["team_id"], unit["cell"], stats["hp"])
+	selected_unit_id = -1
+	kills = 0
+	turn = 1
+	game_over = false
+	for button in [end_turn_button, patrol_button, destroyer_button, carrier_button, anti_air_button, jet_button, fighter_button, bomber_button]:
+		button.disabled = false
+	_close_map_editor()
+	_redraw_board()
+	_update_hud("Custom map started. Drag to pan; wheel or pinch to zoom.")
 
 func _redraw_board() -> void:
 	board.set_match(state.map_data, state.units, selected_unit_id, state.current_team().id, UNIT_STATS)
