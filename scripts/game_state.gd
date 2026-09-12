@@ -84,3 +84,96 @@ func is_enemy_port(cell: Vector2i, team_id: int) -> bool:
 	for port in map_data.ports:
 		if port["cell"] == cell and port.get("team_id", team_id) != team_id: return true
 	return false
+
+func execute_command(command: Dictionary, unit_stats: Dictionary) -> Dictionary:
+	var team_id: int = int(command.get("team_id", -1))
+	if team_id != current_team().id:
+		return {"ok": false, "message": "That team is not active."}
+	match command.get("type", ""):
+		"build":
+			return _execute_build(command, unit_stats)
+		"launch":
+			return _execute_launch(command, unit_stats)
+		"move":
+			return _execute_move(command, unit_stats)
+		"attack":
+			return _execute_attack(command, unit_stats)
+	return {"ok": false, "message": "Unknown action command."}
+
+func _execute_build(command: Dictionary, unit_stats: Dictionary) -> Dictionary:
+	var kind: String = command.get("kind", "")
+	if not unit_stats.has(kind):
+		return {"ok": false, "message": "Unknown unit type."}
+	var port := port_for_team(current_team().id)
+	var stats: Dictionary = unit_stats[kind]
+	if port == Vector2i(-1, -1) or unit_id_at(port) != -1 or current_team().money < stats["cost"]:
+		return {"ok": false, "message": "Build requires an open port and enough money."}
+	current_team().money -= stats["cost"]
+	add_unit(kind, current_team().id, port, stats["hp"])
+	return {"ok": true, "message": "%s built a %s." % [current_team().name, kind], "unit_id": next_unit_id - 1}
+
+func _execute_launch(command: Dictionary, unit_stats: Dictionary) -> Dictionary:
+	var unit_id: int = int(command.get("unit_id", -1))
+	var kind: String = command.get("kind", "")
+	var carrier := unit_by_id(unit_id)
+	if carrier.is_empty() or carrier["team_id"] != current_team().id or carrier["kind"] != "Aircraft Carrier" or not unit_stats.has(kind):
+		return {"ok": false, "message": "A selected Aircraft Carrier is required."}
+	var stats: Dictionary = unit_stats[kind]
+	var spawn := _first_open_neighbor(carrier["grid"], stats)
+	if spawn == Vector2i(-1, -1) or current_team().money < stats["cost"]:
+		return {"ok": false, "message": "Launch requires an open space and enough money."}
+	current_team().money -= stats["cost"]
+	add_unit(kind, current_team().id, spawn, stats["hp"])
+	return {"ok": true, "message": "%s launched a %s." % [current_team().name, kind], "unit_id": next_unit_id - 1}
+
+func _execute_move(command: Dictionary, unit_stats: Dictionary) -> Dictionary:
+	var unit_id: int = int(command.get("unit_id", -1))
+	var destination: Vector2i = command.get("cell", Vector2i(-1, -1))
+	var unit := unit_by_id(unit_id)
+	if unit.is_empty() or unit["team_id"] != current_team().id or unit["moved"]:
+		return {"ok": false, "message": "Unit cannot move."}
+	var stats: Dictionary = unit_stats[unit["kind"]]
+	if not map_data.is_inside(destination) or unit_id_at(destination) != -1 or map_data.terrain_at(destination) == "Mountain" and not stats["air"] or _grid_distance(unit["grid"], destination) > stats["move"]:
+		return {"ok": false, "message": "Move is not legal."}
+	set_unit_grid(unit_id, destination)
+	set_unit_flag(unit_id, "moved", true)
+	if is_enemy_port(destination, current_team().id):
+		return {"ok": true, "message": "%s captured an enemy port!" % current_team().name, "winner": current_team().id}
+	return {"ok": true, "message": "%s moved %s." % [current_team().name, unit["kind"]], "unit_id": unit_id}
+
+func _execute_attack(command: Dictionary, unit_stats: Dictionary) -> Dictionary:
+	var attacker_id: int = int(command.get("unit_id", -1))
+	var defender_id: int = int(command.get("target_id", -1))
+	var attacker := unit_by_id(attacker_id)
+	var defender := unit_by_id(defender_id)
+	if attacker.is_empty() or defender.is_empty() or attacker["team_id"] != current_team().id or attacker["team_id"] == defender["team_id"] or attacker["attacked"]:
+		return {"ok": false, "message": "Attack is not legal."}
+	var attack_stats: Dictionary = unit_stats[attacker["kind"]]
+	var defense_stats: Dictionary = unit_stats[defender["kind"]]
+	if not _can_attack(attack_stats, defense_stats) or _grid_distance(attacker["grid"], defender["grid"]) > attack_stats["range"]:
+		return {"ok": false, "message": "Target is out of range."}
+	set_unit_flag(attacker_id, "attacked", true)
+	var damage := damage_unit(defender_id, attack_stats["damage"], _defense_for(defender, defense_stats))
+	if unit_by_id(defender_id).is_empty():
+		current_team().money += 50
+		if count_units_for_team(defender["team_id"]) == 0:
+			return {"ok": true, "message": "%s destroyed the final enemy unit!" % current_team().name, "damage": damage, "destroyed": true, "winner": current_team().id}
+		return {"ok": true, "message": "%s destroyed an enemy unit." % current_team().name, "damage": damage, "destroyed": true}
+	return {"ok": true, "message": "%s hit %s for %d damage." % [current_team().name, defender["kind"], damage], "damage": damage}
+
+func _grid_distance(a: Vector2i, b: Vector2i) -> int:
+	return abs(a.x - b.x) + abs(a.y - b.y)
+
+func _first_open_neighbor(cell: Vector2i, stats: Dictionary) -> Vector2i:
+	for direction in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var candidate: Vector2i = cell + direction
+		if map_data.is_inside(candidate) and unit_id_at(candidate) == -1 and (map_data.terrain_at(candidate) != "Mountain" or stats["air"]):
+			return candidate
+	return Vector2i(-1, -1)
+
+func _can_attack(attacker: Dictionary, defender: Dictionary) -> bool:
+	return attacker["target"] == "any" or (attacker["target"] == "air" and defender["air"]) or (attacker["target"] == "surface" and not defender["air"])
+
+func _defense_for(unit: Dictionary, stats: Dictionary) -> int:
+	var terrain: String = map_data.terrain_at(unit["grid"])
+	return 2 if stats["air"] and terrain == "Mountain" else (1 if not stats["air"] and terrain == "Reef" else 0)
