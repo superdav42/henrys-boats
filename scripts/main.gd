@@ -207,12 +207,13 @@ func _on_unit_pressed(unit_id: int) -> void:
 	var unit: Dictionary = state.unit_by_id(unit_id)
 	if unit.is_empty():
 		return
-	_show_unit_inspector(unit)
 	if unit["team_id"] == state.current_team().id:
 		selected_unit_id = unit_id
 		_update_hud("Selected %s. Move, attack, or build from the port/AC." % unit["kind"])
 		_redraw_board()
+		_show_unit_inspector(unit)
 		return
+	_show_unit_inspector(unit)
 	if selected_unit_id == -1:
 		_update_hud("Select one of your units before attacking.")
 		return
@@ -366,8 +367,13 @@ func _show_selected_inspector() -> void:
 
 func _show_cell_inspector(cell: Vector2i) -> void:
 	var terrain: String = state.map_data.terrain_at(cell)
-	var terrain_defense := "Reef gives surface units +1 defence." if terrain == "Reef" else ("Mountain gives air units +2 defence." if terrain == "Mountain" else "Water gives no terrain defence.")
-	inspector.show_snapshot({"title": "%s at %d, %d" % [terrain, cell.x + 1, cell.y + 1], "details": PackedStringArray(["Terrain defence: %s" % terrain_defense, "Select one of your units to see legal movement and attack ranges."])})
+	var details := PackedStringArray(["Terrain: %s" % _terrain_description(terrain), "Terrain defence: %s" % _terrain_defense_description(terrain)])
+	var selected: Dictionary = state.unit_by_id(selected_unit_id)
+	if selected.is_empty():
+		details.append("No unit selected. Tap a friendly silhouette to reveal legal move and attack cells.")
+	else:
+		details.append("Selected %s: %d legal moves • %d legal attacks." % [selected["kind"], board.move_overlay.size(), board.attack_overlay.size()])
+	inspector.show_snapshot({"title": "%s at %d, %d" % [terrain, cell.x + 1, cell.y + 1], "context": "Tile inspection • Read-only", "details": details})
 
 func _show_unit_inspector(unit: Dictionary) -> void:
 	var stats: Dictionary = unit_stats.get(unit.get("kind", ""), {})
@@ -378,9 +384,28 @@ func _show_unit_inspector(unit: Dictionary) -> void:
 	var terrain: String = state.map_data.terrain_at(cell)
 	var team = state.team_by_id(int(unit.get("team_id", 0)))
 	var target_label := "any unit" if stats.get("target", "any") == "any" else ("air units only" if stats.get("target") == "air" else "surface units only")
+	var unit_type := "Air unit" if stats.get("air", false) else "Surface unit"
+	var legal_actions := "Legal actions: inspect this unit; select a friendly unit to reveal its overlays."
+	if unit.get("id", -1) == selected_unit_id and unit.get("team_id", -1) == state.current_team().id:
+		legal_actions = "Legal now: %d move cells • %d attack targets." % [board.move_overlay.size(), board.attack_overlay.size()]
 	var details := PackedStringArray([
-		"Team: %s  •  HP: %d" % [team.name, int(unit.get("hp", 0))],
+		"Team: %s  •  Unit type: %s  •  HP: %d" % [team.name, unit_type, int(unit.get("hp", 0))],
 		"Move %d  •  Range %d  •  Attack %d" % [int(stats.get("move", 0)), int(stats.get("range", 0)), int(stats.get("damage", 0))],
 		"Targets: %s  •  Active defence: %d (%s)" % [target_label, _defense_for(unit), terrain],
+		legal_actions,
 	])
-	inspector.show_snapshot({"title": "%s at %d, %d" % [unit.get("kind", "Unit"), cell.x + 1, cell.y + 1], "details": details})
+	inspector.show_snapshot({"title": "%s at %d, %d" % [unit.get("kind", "Unit"), cell.x + 1, cell.y + 1], "context": "%s • %s terrain • Read-only" % [unit_type, terrain], "details": details})
+
+func _terrain_description(terrain: String) -> String:
+	match terrain:
+		"Shore": return "sandy coastal shallows"
+		"Land": return "green land"
+		"Mountain": return "mountain terrain"
+		"Reef": return "shallow coral reef"
+		"River": return "river channel"
+		_: return "open water"
+
+func _terrain_defense_description(terrain: String) -> String:
+	if terrain == "Reef": return "Reef gives surface units +1 defence."
+	if terrain == "Mountain": return "Mountain gives air units +2 defence."
+	return "%s gives no terrain defence." % terrain

@@ -75,6 +75,9 @@ Buttons and inputs use 8px corners; grouped menu panels may use 16px corners. Do
 - Back is always available from match setup, upgrades, and map editing and returns to home rather than leaving the player stranded.
 - Selection controls use the surface colour and bright text; errors remain visible until the player makes a corrective action.
 - The in-match inspector uses a dark surface card with text labels for terrain, unit facts, and defence. Legal movement uses green overlays; legal attacks use coral overlays, and neither colour is the only source of meaning because the inspector and invalid-action message explain the rules.
+- Board terrain is illustrated with moving wave strokes for water, sand bands for shore, grass marks for land, peaked mountains, coral reef clusters, and a bright river channel. These patterns remain distinct at zoomed-out sizes.
+- Surface units use hull and bridge silhouettes; air units use winged aircraft silhouettes. Team colour fills the silhouette while a dark outline, short type code, and HP pips provide non-colour identification. A white diamond identifies the selected unit, and move/attack overlays carry `M`/`A` markers as well as their colours.
+- The read-only inspector identifies the selected tile or unit, terrain, team, unit type, HP, movement, range, attack, target rules, defence, and the current legal move/attack count.
 
 ### Navigation
 
