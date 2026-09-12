@@ -1,0 +1,55 @@
+name: Review Bot Gate
+
+# Managed by aidevops framework.
+permissions:
+  pull-requests: read
+  contents: read
+  statuses: write
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
+  issue_comment:
+    types: [created, edited]
+
+jobs:
+  gate:
+    if: >
+      (
+        github.event_name == 'pull_request' ||
+        (
+          (
+            github.event_name == 'pull_request_review' ||
+            (
+              github.event_name == 'pull_request_review_comment' &&
+              github.event.comment.in_reply_to_id == null
+            ) ||
+            (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+          ) &&
+          (
+            github.actor == 'coderabbitai' ||
+            github.actor == 'coderabbitai[bot]' ||
+            github.actor == 'gemini-code-assist' ||
+            github.actor == 'gemini-code-assist[bot]' ||
+            github.actor == 'augment-code' ||
+            github.actor == 'augment-code[bot]' ||
+            github.actor == 'augmentcode' ||
+            github.actor == 'augmentcode[bot]' ||
+            github.actor == 'copilot' ||
+            github.actor == 'copilot[bot]' ||
+            github.actor == 'github-actions[bot]'
+          )
+        )
+      )
+    concurrency:
+      group: review-bot-gate-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: false
+    uses: marcusquinn/aidevops/.github/workflows/review-bot-gate-reusable.yml@main
+    with:
+      aidevops_ref: main
+      completion_behavior: ${{ vars.AIDEVOPS_REVIEW_GATE_COMPLETION_BEHAVIOR || 'fast' }}
+    secrets: inherit

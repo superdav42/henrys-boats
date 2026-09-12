@@ -1,0 +1,15 @@
+name: Linked Issue Check
+
+# Managed by aidevops framework.
+permissions:
+  issues: read
+  pull-requests: read
+  statuses: write
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  check:
+    uses: marcusquinn/aidevops/.github/workflows/linked-issue-check-reusable.yml@main

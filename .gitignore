@@ -18,6 +18,12 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Secrets
+.env
+*.pem
+*.key
+credentials.json
+
 # aidevops runtime artifacts
 .agents/loop-state/
 .agents/tmp/
