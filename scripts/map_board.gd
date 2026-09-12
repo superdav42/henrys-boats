@@ -12,6 +12,8 @@ var units: Array[Dictionary] = []
 var selected_unit_id := -1
 var active_team_id := 0
 var unit_stats: Dictionary = {}
+var move_overlay: Array[Vector2i] = []
+var attack_overlay: Array[Vector2i] = []
 var editor_mode := false
 var zoom_level := 1.0
 var pan := Vector2(48, 220)
@@ -25,6 +27,7 @@ func set_match(new_map, new_units: Array[Dictionary], selected_id: int, team_id:
 	active_team_id = team_id
 	unit_stats = stats
 	editor_mode = false
+	_rebuild_overlays()
 	queue_redraw()
 
 func set_editor_map(new_map) -> void:
@@ -34,6 +37,8 @@ func set_editor_map(new_map) -> void:
 	active_team_id = 0
 	unit_stats = {}
 	editor_mode = true
+	move_overlay.clear()
+	attack_overlay.clear()
 	queue_redraw()
 
 func _draw() -> void:
@@ -44,6 +49,10 @@ func _draw() -> void:
 			var rect := Rect2(pan + Vector2(cell) * BASE_CELL_SIZE * zoom_level, Vector2.ONE * BASE_CELL_SIZE * zoom_level)
 			draw_rect(rect, _terrain_color(map_data.terrain_at(cell)))
 			draw_rect(rect, Color(0.62, 0.82, 0.94), false, maxf(1.0, zoom_level))
+			if cell in move_overlay:
+				draw_rect(rect.grow(-4.0 * zoom_level), Color(0.2, 0.85, 0.55, 0.42))
+			if cell in attack_overlay:
+				draw_rect(rect.grow(-4.0 * zoom_level), Color(1.0, 0.45, 0.35, 0.5))
 	for port in map_data.ports:
 		var rect := _cell_rect(port["cell"])
 		draw_circle(rect.get_center(), 10.0 * zoom_level, _team_color(port["team_id"]))
@@ -88,6 +97,48 @@ func _select_at(point: Vector2) -> void:
 				unit_pressed.emit(unit["id"])
 				return
 	cell_pressed.emit(cell)
+
+func _rebuild_overlays() -> void:
+	move_overlay.clear()
+	attack_overlay.clear()
+	if map_data == null or editor_mode or selected_unit_id == -1:
+		return
+	var selected := _unit_by_id(selected_unit_id)
+	if selected.is_empty() or selected.get("team_id", -1) != active_team_id:
+		return
+	var stats: Dictionary = unit_stats.get(selected.get("kind", ""), {})
+	if stats.is_empty():
+		return
+	var origin: Vector2i = selected.get("grid", Vector2i(-1, -1))
+	if not selected.get("moved", false):
+		for y in map_data.height:
+			for x in map_data.width:
+				var cell := Vector2i(x, y)
+				if cell != origin and _unit_id_at(cell) == -1 and (map_data.terrain_at(cell) != "Mountain" or stats.get("air", false)) and _grid_distance(origin, cell) <= int(stats.get("move", 0)):
+					move_overlay.append(cell)
+	if not selected.get("attacked", false):
+		for unit in units:
+			var target_cell: Vector2i = unit.get("grid", Vector2i(-1, -1))
+			if unit.get("team_id", active_team_id) != active_team_id and _can_attack(stats, unit_stats.get(unit.get("kind", ""), {})) and _grid_distance(origin, target_cell) <= int(stats.get("range", 0)):
+				attack_overlay.append(target_cell)
+
+func _unit_by_id(unit_id: int) -> Dictionary:
+	for unit in units:
+		if unit.get("id", -1) == unit_id:
+			return unit
+	return {}
+
+func _unit_id_at(cell: Vector2i) -> int:
+	for unit in units:
+		if unit.get("grid", Vector2i(-1, -1)) == cell:
+			return int(unit.get("id", -1))
+	return -1
+
+func _grid_distance(a: Vector2i, b: Vector2i) -> int:
+	return abs(a.x - b.x) + abs(a.y - b.y)
+
+func _can_attack(attacker: Dictionary, defender: Dictionary) -> bool:
+	return attacker.get("target", "") == "any" or (attacker.get("target", "") == "air" and defender.get("air", false)) or (attacker.get("target", "") == "surface" and not defender.get("air", false))
 
 func world_to_grid(point: Vector2) -> Vector2i:
 	return Vector2i(floori((point.x - pan.x) / (BASE_CELL_SIZE * zoom_level)), floori((point.y - pan.y) / (BASE_CELL_SIZE * zoom_level)))

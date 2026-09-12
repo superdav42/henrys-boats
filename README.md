@@ -21,6 +21,7 @@ A Godot 4.7 2D mobile prototype for a turn-based boat combat game on a water gri
 ## Current gameplay
 
 - Tap one of your blue boats to select it.
+- Tap any tile or unit to inspect its terrain defence, team, stats, target rules, and active defence. Green squares are legal moves and coral squares are legal attack targets for the selected active unit.
 - Win by capturing the enemy port or destroying every enemy unit.
 - Tap an empty water square to move within that unit's movement range. Mountains are land tiles that only air units can enter.
 - Tap a red enemy unit while one of your units is selected to attack.
