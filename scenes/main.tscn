@@ -60,18 +60,39 @@ custom_minimum_size = Vector2(150, 64)
 text = "Build DD\n$180"
 
 [node name="CarrierButton" type="Button" parent="Hud/BuildPanel"]
-custom_minimum_size = Vector2(150, 64)
+custom_minimum_size = Vector2(160, 64)
 text = "Build AC\n$300"
 
-[node name="JetButton" type="Button" parent="Hud/BuildPanel"]
-custom_minimum_size = Vector2(128, 64)
+[node name="AntiAirButton" type="Button" parent="Hud/BuildPanel"]
+custom_minimum_size = Vector2(160, 64)
+text = "Build AAB\n$220"
+
+[node name="AirPanel" type="HBoxContainer" parent="Hud"]
+offset_left = 20.0
+offset_top = 946.0
+offset_right = 700.0
+offset_bottom = 1014.0
+theme_override_constants/separation = 8
+
+[node name="JetButton" type="Button" parent="Hud/AirPanel"]
+custom_minimum_size = Vector2(210, 64)
 disabled = true
-text = "AC Jet\n$120"
+text = "AC Jet (any)\n$120"
+
+[node name="FighterButton" type="Button" parent="Hud/AirPanel"]
+custom_minimum_size = Vector2(210, 64)
+disabled = true
+text = "AC Fighter (air)\n$150"
+
+[node name="BomberButton" type="Button" parent="Hud/AirPanel"]
+custom_minimum_size = Vector2(210, 64)
+disabled = true
+text = "AC Bomber (surface)\n$180"
 
 [node name="EndTurnButton" type="Button" parent="Hud"]
 offset_left = 220.0
-offset_top = 956.0
+offset_top = 1030.0
 offset_right = 500.0
-offset_bottom = 1032.0
+offset_bottom = 1106.0
 theme_override_font_sizes/font_size = 26
 text = "End Turn"
