@@ -12,6 +12,7 @@ var units: Array[Dictionary] = []
 var selected_unit_id := -1
 var active_team_id := 0
 var unit_stats: Dictionary = {}
+var editor_mode := false
 var zoom_level := 1.0
 var pan := Vector2(48, 220)
 var dragging := false
@@ -23,6 +24,16 @@ func set_match(new_map, new_units: Array[Dictionary], selected_id: int, team_id:
 	selected_unit_id = selected_id
 	active_team_id = team_id
 	unit_stats = stats
+	editor_mode = false
+	queue_redraw()
+
+func set_editor_map(new_map) -> void:
+	map_data = new_map
+	units = new_map.starting_units
+	selected_unit_id = -1
+	active_team_id = 0
+	unit_stats = {}
+	editor_mode = true
 	queue_redraw()
 
 func _draw() -> void:
@@ -35,14 +46,18 @@ func _draw() -> void:
 			draw_rect(rect, Color(0.62, 0.82, 0.94), false, maxf(1.0, zoom_level))
 	for port in map_data.ports:
 		var rect := _cell_rect(port["cell"])
-		draw_circle(rect.get_center(), 10.0 * zoom_level, Color(0.2, 0.8, 0.35) if port["team_id"] == active_team_id else Color(0.9, 0.25, 0.25))
+		draw_circle(rect.get_center(), 10.0 * zoom_level, _team_color(port["team_id"]))
 	for unit in units:
-		var rect := _cell_rect(unit["grid"]).grow(-8.0 * zoom_level)
-		var color := Color(0.28, 0.75, 1.0) if unit["team_id"] == active_team_id else Color(1.0, 0.42, 0.35)
+		var cell: Vector2i = unit.get("cell", unit.get("grid", Vector2i(-1, -1)))
+		if not map_data.is_inside(cell):
+			continue
+		var rect := _cell_rect(cell).grow(-8.0 * zoom_level)
+		var color := _team_color(unit["team_id"])
 		draw_rect(rect, color)
-		if unit["id"] == selected_unit_id: draw_rect(rect.grow(3.0), Color.WHITE, false, 3.0)
-		var label: String = unit_stats.get(unit["kind"], {}).get("short", "?")
-		draw_string(ThemeDB.fallback_font, rect.position + Vector2(4, 20) * zoom_level, "%s %d" % [label, unit["hp"]], HORIZONTAL_ALIGNMENT_LEFT, -1, 14.0 * zoom_level, Color(0.03, 0.08, 0.12))
+		if not editor_mode and unit["id"] == selected_unit_id: draw_rect(rect.grow(3.0), Color.WHITE, false, 3.0)
+		var label: String = unit_stats.get(unit["kind"], {}).get("short", unit["kind"].left(2).to_upper())
+		var hp: Variant = unit.get("hp", 0)
+		draw_string(ThemeDB.fallback_font, rect.position + Vector2(4, 20) * zoom_level, "%s" % label if editor_mode else "%s %d" % [label, hp], HORIZONTAL_ALIGNMENT_LEFT, -1, 14.0 * zoom_level, Color(0.03, 0.08, 0.12))
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -67,7 +82,11 @@ func _select_at(point: Vector2) -> void:
 	var cell := world_to_grid(point)
 	if not map_data.is_inside(cell): return
 	for unit in units:
-		if unit["grid"] == cell: unit_pressed.emit(unit["id"]); return
+		var unit_cell: Vector2i = unit.get("cell", unit.get("grid", Vector2i(-1, -1)))
+		if unit_cell == cell:
+			if not editor_mode:
+				unit_pressed.emit(unit["id"])
+				return
 	cell_pressed.emit(cell)
 
 func world_to_grid(point: Vector2) -> Vector2i:
@@ -80,3 +99,7 @@ func _terrain_color(terrain: String) -> Color:
 	if terrain == "Mountain": return Color(0.36, 0.31, 0.22)
 	if terrain == "Reef": return Color(0.13, 0.44, 0.43)
 	return Color(0.08, 0.25, 0.44)
+
+func _team_color(team_id: int) -> Color:
+	var colors := [Color(0.28, 0.75, 1.0), Color(1.0, 0.42, 0.35), Color(0.35, 0.9, 0.45), Color(1.0, 0.8, 0.25), Color(0.78, 0.42, 1.0), Color(1.0, 0.55, 0.2), Color(0.3, 0.9, 0.85), Color(0.95, 0.4, 0.65)]
+	return colors[clampi(team_id, 0, colors.size() - 1)]
