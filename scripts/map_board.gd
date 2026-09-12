@@ -19,6 +19,7 @@ var zoom_level := 1.0
 var pan := Vector2(48, 220)
 var dragging := false
 var drag_origin := Vector2.ZERO
+var water_phase := 0.0
 
 func set_match(new_map, new_units: Array[Dictionary], selected_id: int, team_id: int, stats: Dictionary) -> void:
 	map_data = new_map
@@ -41,32 +42,128 @@ func set_editor_map(new_map) -> void:
 	attack_overlay.clear()
 	queue_redraw()
 
+func _process(delta: float) -> void:
+	if visible and map_data != null:
+		water_phase = fmod(water_phase + delta, 6.0)
+		queue_redraw()
+
 func _draw() -> void:
 	if map_data == null: return
 	for y in map_data.height:
 		for x in map_data.width:
 			var cell := Vector2i(x, y)
 			var rect := Rect2(pan + Vector2(cell) * BASE_CELL_SIZE * zoom_level, Vector2.ONE * BASE_CELL_SIZE * zoom_level)
-			draw_rect(rect, _terrain_color(map_data.terrain_at(cell)))
-			draw_rect(rect, Color(0.62, 0.82, 0.94), false, maxf(1.0, zoom_level))
+			_draw_terrain(rect, map_data.terrain_at(cell))
+			draw_rect(rect, Color(0.72, 0.9, 0.98, 0.48), false, maxf(1.0, zoom_level))
 			if cell in move_overlay:
-				draw_rect(rect.grow(-4.0 * zoom_level), Color(0.2, 0.85, 0.55, 0.42))
+				_draw_overlay_marker(rect, Color(0.2, 0.85, 0.55, 0.72), "M")
 			if cell in attack_overlay:
-				draw_rect(rect.grow(-4.0 * zoom_level), Color(1.0, 0.45, 0.35, 0.5))
+				_draw_overlay_marker(rect, Color(1.0, 0.45, 0.35, 0.78), "A")
 	for port in map_data.ports:
 		var rect := _cell_rect(port["cell"])
-		draw_circle(rect.get_center(), 10.0 * zoom_level, _team_color(port["team_id"]))
+		_draw_port_marker(rect, _team_color(port["team_id"]))
 	for unit in units:
 		var cell: Vector2i = unit.get("cell", unit.get("grid", Vector2i(-1, -1)))
 		if not map_data.is_inside(cell):
 			continue
-		var rect := _cell_rect(cell).grow(-8.0 * zoom_level)
-		var color := _team_color(unit["team_id"])
-		draw_rect(rect, color)
-		if not editor_mode and unit["id"] == selected_unit_id: draw_rect(rect.grow(3.0), Color.WHITE, false, 3.0)
-		var label: String = unit_stats.get(unit["kind"], {}).get("short", unit["kind"].left(2).to_upper())
-		var hp: Variant = unit.get("hp", 0)
-		draw_string(ThemeDB.fallback_font, rect.position + Vector2(4, 20) * zoom_level, "%s" % label if editor_mode else "%s %d" % [label, hp], HORIZONTAL_ALIGNMENT_LEFT, -1, 14.0 * zoom_level, Color(0.03, 0.08, 0.12))
+		_draw_unit(_cell_rect(cell), unit)
+
+func _draw_terrain(rect: Rect2, terrain: String) -> void:
+	match terrain:
+		"Shore":
+			draw_rect(rect, Color("dcbf77"))
+			for row in range(1, 4):
+				draw_line(Vector2(rect.position.x, rect.position.y + rect.size.y * row / 4.0), Vector2(rect.end.x, rect.position.y + rect.size.y * row / 4.0), Color("f5e4ad"), maxf(1.0, zoom_level))
+		"Land":
+			draw_rect(rect, Color("4b8a4b"))
+			for dot in [Vector2(0.22, 0.3), Vector2(0.68, 0.22), Vector2(0.45, 0.7), Vector2(0.82, 0.78)]:
+				draw_circle(rect.position + rect.size * dot, 2.0 * zoom_level, Color("78b85c"))
+		"Mountain":
+			draw_rect(rect, Color("5f8050"))
+			_draw_mountain(rect, 0.16, 0.9, 0.5, 0.16, 0.84, 0.9, Color("756653"))
+			_draw_mountain(rect, 0.38, 0.9, 0.69, 0.32, 0.96, 0.9, Color("554b45"))
+		"Reef":
+			_draw_water(rect)
+			for reef in [Vector2(0.28, 0.35), Vector2(0.64, 0.56), Vector2(0.46, 0.75)]:
+				draw_circle(rect.position + rect.size * reef, 7.0 * zoom_level, Color("38a897"))
+				draw_circle(rect.position + rect.size * reef + Vector2(1.0, -1.0) * zoom_level, 3.5 * zoom_level, Color("8ed9b1"))
+		"River":
+			draw_rect(rect, Color("4d8b50"))
+			var river := PackedVector2Array([rect.position + rect.size * Vector2(0.2, 0.0), rect.position + rect.size * Vector2(0.66, 0.35), rect.position + rect.size * Vector2(0.35, 0.65), rect.position + rect.size * Vector2(0.78, 1.0)])
+			draw_polyline(river, Color("1978ae"), 16.0 * zoom_level, true)
+			draw_polyline(river, Color("68c9e8"), 5.0 * zoom_level, true)
+		_:
+			_draw_water(rect)
+
+func _draw_water(rect: Rect2) -> void:
+	draw_rect(rect, Color("176a9f"))
+	for row in range(1, 5):
+		var y := rect.position.y + rect.size.y * row / 5.0
+		var offset := fposmod(water_phase * 14.0 + rect.position.x * 0.12 + row * 11.0, 22.0) - 22.0
+		for column in range(3):
+			var start_x := rect.position.x + offset + column * 28.0 * zoom_level
+			draw_line(Vector2(start_x, y), Vector2(start_x + 13.0 * zoom_level, y), Color("75c9e6", 0.7), maxf(1.0, zoom_level))
+
+func _draw_mountain(rect: Rect2, left_x: float, base_y: float, peak_x: float, peak_y: float, right_x: float, right_y: float, color: Color) -> void:
+	var points := PackedVector2Array([rect.position + rect.size * Vector2(left_x, base_y), rect.position + rect.size * Vector2(peak_x, peak_y), rect.position + rect.size * Vector2(right_x, right_y)])
+	draw_colored_polygon(points, color)
+
+func _draw_overlay_marker(rect: Rect2, color: Color, marker: String) -> void:
+	var inset := 4.0 * zoom_level
+	var inner := rect.grow(-inset)
+	draw_rect(inner, Color(color, 0.2))
+	draw_rect(inner, color, false, maxf(1.5, zoom_level))
+	draw_string(ThemeDB.fallback_font, inner.get_center() + Vector2(-4.0, 5.0) * zoom_level, marker, HORIZONTAL_ALIGNMENT_LEFT, -1, 13.0 * zoom_level, Color.WHITE)
+
+func _draw_port_marker(rect: Rect2, color: Color) -> void:
+	var center := rect.get_center()
+	draw_circle(center, 11.0 * zoom_level, Color("10263a"))
+	draw_circle(center, 8.0 * zoom_level, color)
+	draw_line(center + Vector2(0, -7.0) * zoom_level, center + Vector2(0, 7.0) * zoom_level, Color.WHITE, maxf(1.0, zoom_level))
+	draw_line(center + Vector2(-5.0, 0) * zoom_level, center + Vector2(5.0, 0) * zoom_level, Color.WHITE, maxf(1.0, zoom_level))
+
+func _draw_unit(cell_rect: Rect2, unit: Dictionary) -> void:
+	var rect := cell_rect.grow(-7.0 * zoom_level)
+	var stats: Dictionary = unit_stats.get(unit.get("kind", ""), {})
+	var color := _team_color(int(unit.get("team_id", 0)))
+	var is_air: bool = bool(stats.get("air", unit.get("kind", "") in ["Jet", "Fighter", "Bomber"]))
+	if is_air:
+		_draw_aircraft(rect, color)
+	else:
+		_draw_ship(rect, color, unit.get("kind", ""))
+	_draw_hit_points(rect, int(unit.get("hp", 0)), int(stats.get("hp", unit.get("hp", 0))))
+	if not editor_mode and unit.get("id", -1) == selected_unit_id:
+		_draw_selection_outline(rect)
+	if zoom_level >= 0.55:
+		var label: String = stats.get("short", unit.get("kind", "Unit").left(2).to_upper())
+		draw_string(ThemeDB.fallback_font, rect.position + Vector2(2.0, rect.size.y - 2.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11.0 * zoom_level, Color.WHITE)
+
+func _draw_ship(rect: Rect2, color: Color, kind: String) -> void:
+	var hull := PackedVector2Array([rect.position + rect.size * Vector2(0.12, 0.62), rect.position + rect.size * Vector2(0.76, 0.62), rect.position + rect.size * Vector2(0.95, 0.48), rect.position + rect.size * Vector2(0.76, 0.8), rect.position + rect.size * Vector2(0.2, 0.8)])
+	draw_colored_polygon(hull, color)
+	draw_polyline(PackedVector2Array([hull[0], hull[1], hull[2], hull[3], hull[4], hull[0]]), Color("10263a"), maxf(1.5, zoom_level), true)
+	if kind == "Aircraft Carrier":
+		draw_rect(Rect2(rect.position + rect.size * Vector2(0.2, 0.38), rect.size * Vector2(0.58, 0.2)), Color("e4edf1"))
+		draw_line(rect.position + rect.size * Vector2(0.28, 0.48), rect.position + rect.size * Vector2(0.7, 0.48), Color("344454"), maxf(1.0, zoom_level))
+	else:
+		draw_rect(Rect2(rect.position + rect.size * Vector2(0.38, 0.35), rect.size * Vector2(0.24, 0.28)), Color("d9eff5"))
+		draw_line(rect.position + rect.size * Vector2(0.5, 0.35), rect.position + rect.size * Vector2(0.66, 0.2), Color("d9eff5"), maxf(2.0, zoom_level))
+
+func _draw_aircraft(rect: Rect2, color: Color) -> void:
+	var plane := PackedVector2Array([rect.position + rect.size * Vector2(0.5, 0.08), rect.position + rect.size * Vector2(0.62, 0.4), rect.position + rect.size * Vector2(0.94, 0.56), rect.position + rect.size * Vector2(0.61, 0.6), rect.position + rect.size * Vector2(0.54, 0.9), rect.position + rect.size * Vector2(0.45, 0.9), rect.position + rect.size * Vector2(0.39, 0.6), rect.position + rect.size * Vector2(0.06, 0.56), rect.position + rect.size * Vector2(0.38, 0.4)])
+	draw_colored_polygon(plane, color)
+	draw_polyline(PackedVector2Array([plane[0], plane[1], plane[2], plane[3], plane[4], plane[5], plane[6], plane[7], plane[8], plane[0]]), Color("10263a"), maxf(1.5, zoom_level), true)
+
+func _draw_hit_points(rect: Rect2, current_hp: int, max_hp: int) -> void:
+	var count := clampi(max_hp, 1, 6)
+	for index in count:
+		var color := Color("f2f7f8") if index < current_hp else Color("10263a", 0.75)
+		draw_circle(rect.position + Vector2((7.0 + index * 7.0) * zoom_level, 7.0 * zoom_level), 2.2 * zoom_level, color)
+
+func _draw_selection_outline(rect: Rect2) -> void:
+	var points := [rect.get_center() + Vector2(0, -rect.size.y * 0.62), rect.get_center() + Vector2(rect.size.x * 0.62, 0), rect.get_center() + Vector2(0, rect.size.y * 0.62), rect.get_center() + Vector2(-rect.size.x * 0.62, 0)]
+	for index in points.size():
+		draw_line(points[index], points[(index + 1) % points.size()], Color.WHITE, maxf(2.0, zoom_level))
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:

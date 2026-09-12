@@ -5,7 +5,7 @@ const VERSION := 1
 const MIN_SIZE := 10
 const MAX_SIZE := 100
 const MAP_SIZES := [10, 15, 20, 25, 30, 40, 50, 75, 100]
-const TERRAIN_TYPES := ["Water", "Reef", "Mountain"]
+const TERRAIN_TYPES := ["Water", "Shore", "Land", "Mountain", "Reef", "River"]
 const UNIT_TYPES := ["Patrol", "Destroyer", "Aircraft Carrier", "Anti-Air Boat", "Jet", "Fighter", "Bomber"]
 const AIR_UNIT_TYPES := ["Jet", "Fighter", "Bomber"]
 const INVALID_CELL := Vector2i(-1, -1)
@@ -30,6 +30,12 @@ static func default_map():
 		map.set_terrain(cell, "Mountain")
 	for cell in [Vector2i(3, 3), Vector2i(5, 4), Vector2i(2, 6)]:
 		map.set_terrain(cell, "Reef")
+	for cell in [Vector2i(4, 1), Vector2i(6, 2)]:
+		map.set_terrain(cell, "Shore")
+	for cell in [Vector2i(4, 2), Vector2i(6, 3)]:
+		map.set_terrain(cell, "Land")
+	for cell in [Vector2i(4, 3), Vector2i(6, 4)]:
+		map.set_terrain(cell, "River")
 	map.ports.append({"team_id": 0, "cell": Vector2i(0, 9)})
 	map.ports.append({"team_id": 1, "cell": Vector2i(9, 0)})
 	for unit in [{"kind": "Patrol", "team_id": 0, "cell": Vector2i(0, 9)}, {"kind": "Destroyer", "team_id": 0, "cell": Vector2i(1, 9)}, {"kind": "Patrol", "team_id": 1, "cell": Vector2i(9, 0)}, {"kind": "Destroyer", "team_id": 1, "cell": Vector2i(8, 0)}, {"kind": "Aircraft Carrier", "team_id": 1, "cell": Vector2i(9, 1)}, {"kind": "Fighter", "team_id": 1, "cell": Vector2i(7, 0)}]:
