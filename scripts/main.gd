@@ -51,6 +51,7 @@ func _ready() -> void:
 	board.cell_pressed.connect(_on_cell_pressed)
 	board.unit_pressed.connect(_on_unit_pressed)
 	_connect_buttons()
+	turn_manager = TurnManagerResource.new()
 	_show_home()
 
 func _connect_buttons() -> void:

@@ -43,6 +43,12 @@ func _on_start_pressed() -> void:
 		return
 	match_configured.emit({"map": map_data, "controllers": controller_types})
 
+func _on_editor_pressed() -> void:
+	map_editor_requested.emit()
+
+func _on_back_pressed() -> void:
+	cancelled.emit()
+
 func _selected_map(team_total: int):
 	if map_select.selected < MapDataResource.MAP_SIZES.size():
 		var size: int = int(map_select.get_item_metadata(map_select.selected))

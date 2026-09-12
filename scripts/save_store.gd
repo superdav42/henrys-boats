@@ -14,7 +14,8 @@ static func load_profile() -> Dictionary:
 	if file == null:
 		return default_profile
 	var parsed = JSON.parse_string(file.get_as_text())
-	return normalized_profile(parsed) if parsed is Dictionary else default_profile
+	var normalized := normalized_profile(parsed)
+	return normalized if not normalized.is_empty() else default_profile
 
 static func save_profile(profile: Dictionary) -> Error:
 	var normalized := normalized_profile(profile)

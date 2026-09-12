@@ -78,5 +78,5 @@ layout_mode = 2
 text = "Back"
 
 [connection signal="pressed" from="Panel/Content/StartButton" to="." method="_on_start_pressed"]
-[connection signal="pressed" from="Panel/Content/EditorButton" to="." method="map_editor_requested.emit"]
-[connection signal="pressed" from="Panel/Content/BackButton" to="." method="cancelled.emit"]
+[connection signal="pressed" from="Panel/Content/EditorButton" to="." method="_on_editor_pressed"]
+[connection signal="pressed" from="Panel/Content/BackButton" to="." method="_on_back_pressed"]
