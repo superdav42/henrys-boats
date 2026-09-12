@@ -56,3 +56,6 @@ func _on_reset_pressed() -> void:
 	reset_confirm.button_pressed = false
 	status_label.text = "Profile reset."
 	_refresh()
+
+func _on_back_pressed() -> void:
+	cancelled.emit()

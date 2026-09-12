@@ -111,7 +111,7 @@ func _open_map_editor_from_setup() -> void:
 	_open_map_editor()
 
 func _open_map_editor() -> void:
-	if map_editor != null or _player_input_locked():
+	if map_editor != null or (board.visible and _player_input_locked()):
 		return
 	map_editor = MapEditorScene.instantiate()
 	add_child(map_editor)
