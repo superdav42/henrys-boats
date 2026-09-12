@@ -63,18 +63,18 @@ Format: `- [ ] tNNN Description @owner #tag ~estimate risk:level logged:date`
 
 <!-- Tasks with no open blockers - run /ready to refresh -->
 
-- [ ] t4 Build the configurable multiplayer roadmap #parent-task #tier:thinking ~4h risk:high logged:2026-09-12
-- [ ] t5 Extract dynamic match state and a scalable map board #auto-dispatch #tier:standard ~4h risk:high logged:2026-09-12
+- [ ] t4 Build the configurable multiplayer roadmap #parent-task #tier:thinking ~4h risk:high ref:GH#1 logged:2026-09-12
+- [ ] t5 Extract dynamic match state and a scalable map board #auto-dispatch #tier:standard ~4h risk:high ref:GH#2 logged:2026-09-12
 
 <!--TOON:ready[0]{id,desc,owner,tags,est,risk,logged,status}:
 -->
 
 ## Backlog
 
-- [ ] t6 Add home, match setup, and permanent upgrades #auto-dispatch #tier:standard blocked-by:t5 ~4h risk:med logged:2026-09-12
-- [ ] t7 Add custom-map editor, validation, and JSON import/export #auto-dispatch #tier:standard blocked-by:t5 ~4h risk:high logged:2026-09-12
-- [ ] t8 Add hot-seat teams and paced CPU turns #auto-dispatch #tier:standard blocked-by:t5 ~4h risk:high logged:2026-09-12
-- [ ] t9 Add map/unit inspection, range overlays, and end-to-end verification #auto-dispatch #tier:standard blocked-by:t6,t7,t8 ~4h risk:high logged:2026-09-12
+- [ ] t6 Add home, match setup, and permanent upgrades #auto-dispatch #tier:standard blocked-by:t5 ~4h risk:med ref:GH#3 logged:2026-09-12
+- [ ] t7 Add custom-map editor, validation, and JSON import/export #auto-dispatch #tier:standard blocked-by:t5 ~4h risk:high ref:GH#4 logged:2026-09-12
+- [ ] t8 Add hot-seat teams and paced CPU turns #auto-dispatch #tier:standard blocked-by:t5 ~4h risk:high ref:GH#5 logged:2026-09-12
+- [ ] t9 Add map/unit inspection, range overlays, and end-to-end verification #auto-dispatch #tier:standard blocked-by:t6,t7,t8 ~4h risk:high ref:GH#6 logged:2026-09-12
 
 <!--TOON:backlog[0]{id,desc,owner,tags,est,risk,logged,status}:
 -->
