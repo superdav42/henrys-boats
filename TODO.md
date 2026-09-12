@@ -64,7 +64,7 @@ Format: `- [ ] tNNN Description @owner #tag ~estimate risk:level logged:date`
 <!-- Tasks with no open blockers - run /ready to refresh -->
 
 - [ ] t4 Build the configurable multiplayer roadmap #parent-task #tier:thinking ~4h risk:high ref:GH#1 logged:2026-09-12
-- [ ] t5 Extract dynamic match state and a scalable map board #auto-dispatch #tier:standard ~4h risk:high ref:GH#2 logged:2026-09-12
+- [x] t5 Extract dynamic match state and a scalable map board #auto-dispatch #tier:standard ~4h risk:high ref:GH#2 logged:2026-09-12 pr:#9 completed:2026-09-12
 
 <!--TOON:ready[0]{id,desc,owner,tags,est,risk,logged,status}:
 -->
