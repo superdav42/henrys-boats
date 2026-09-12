@@ -12,6 +12,49 @@ offset_bottom = 1280.0
 color = Color(0.0392157, 0.101961, 0.172549, 1)
 
 [node name="MapBoard" parent="." instance=ExtResource("2_map_board")]
+visible = false
+
+[node name="Home" type="CanvasLayer" parent="."]
+
+[node name="Title" type="Label" parent="Home"]
+offset_left = 32.0
+offset_top = 210.0
+offset_right = 688.0
+offset_bottom = 280.0
+theme_override_font_sizes/font_size = 42
+text = "Henry's Boats"
+horizontal_alignment = 1
+
+[node name="Subtitle" type="Label" parent="Home"]
+offset_left = 48.0
+offset_top = 300.0
+offset_right = 672.0
+offset_bottom = 350.0
+theme_override_font_sizes/font_size = 20
+text = "Plan your fleet. Capture the sea."
+horizontal_alignment = 1
+
+[node name="PlayButton" type="Button" parent="Home"]
+offset_left = 100.0
+offset_top = 440.0
+offset_right = 620.0
+offset_bottom = 504.0
+theme_override_font_sizes/font_size = 24
+text = "Play"
+
+[node name="UpgradesButton" type="Button" parent="Home"]
+offset_left = 100.0
+offset_top = 528.0
+offset_right = 620.0
+offset_bottom = 588.0
+text = "Permanent Upgrades"
+
+[node name="MapEditorButton" type="Button" parent="Home"]
+offset_left = 100.0
+offset_top = 612.0
+offset_right = 620.0
+offset_bottom = 672.0
+text = "Map Editor"
 
 [node name="Hud" type="CanvasLayer" parent="."]
 

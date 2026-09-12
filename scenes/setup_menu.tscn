@@ -1,0 +1,82 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/setup_menu.gd" id="1"]
+
+[node name="SetupMenu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1")
+
+[node name="Panel" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.039, 0.102, 0.173, 0.98)
+
+[node name="Content" type="VBoxContainer" parent="Panel"]
+offset_left = 32.0
+offset_top = 160.0
+offset_right = 688.0
+offset_bottom = 900.0
+theme_override_constants/separation = 16
+
+[node name="Title" type="Label" parent="Panel/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "Set up match"
+horizontal_alignment = 1
+
+[node name="MapLabel" type="Label" parent="Panel/Content"]
+layout_mode = 2
+text = "Map"
+
+[node name="MapSelect" type="OptionButton" parent="Panel/Content"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+
+[node name="TeamLabel" type="Label" parent="Panel/Content"]
+layout_mode = 2
+text = "Teams (must match map ports)"
+
+[node name="TeamCount" type="SpinBox" parent="Panel/Content"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+
+[node name="ControllerLabel" type="Label" parent="Panel/Content"]
+layout_mode = 2
+text = "Controllers"
+
+[node name="Controllers" type="OptionButton" parent="Panel/Content"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+
+[node name="StatusLabel" type="Label" parent="Panel/Content"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+autowrap_mode = 2
+
+[node name="StartButton" type="Button" parent="Panel/Content"]
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+text = "Start match"
+
+[node name="EditorButton" type="Button" parent="Panel/Content"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+text = "Open Map Editor"
+
+[node name="BackButton" type="Button" parent="Panel/Content"]
+custom_minimum_size = Vector2(0, 52)
+layout_mode = 2
+text = "Back"
+
+[connection signal="pressed" from="Panel/Content/StartButton" to="." method="_on_start_pressed"]
+[connection signal="pressed" from="Panel/Content/EditorButton" to="." method="_on_editor_pressed"]
+[connection signal="pressed" from="Panel/Content/BackButton" to="." method="_on_back_pressed"]
