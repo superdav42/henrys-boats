@@ -12,14 +12,21 @@ func _init(team_id: int, team_name: String, team_color: Color, controller: Strin
 	id = team_id
 	name = team_name
 	color = team_color
-	controller_type = controller
+	controller_type = controller if controller in ["human", "cpu"] else "human"
 	money = starting_money
 
 static func create_teams(count: int, starting_money: int) -> Array:
 	var teams: Array = []
 	for team_id in range(clampi(count, 2, 8)):
-		teams.append(load("res://scripts/team_data.gd").new(team_id, "Team %d" % (team_id + 1), TEAM_COLORS[team_id], "human" if team_id == 0 else "cpu", starting_money))
+		var controller := "human" if team_id % 2 == 0 else "cpu"
+		teams.append(load("res://scripts/team_data.gd").new(team_id, "Team %d" % (team_id + 1), TEAM_COLORS[team_id], controller, starting_money))
 	return teams
 
 func is_cpu() -> bool:
 	return controller_type == "cpu"
+
+func is_human() -> bool:
+	return controller_type == "human"
+
+func controller_label() -> String:
+	return "CPU" if is_cpu() else "Human"

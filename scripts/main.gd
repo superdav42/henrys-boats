@@ -3,6 +3,8 @@ extends Node2D
 const GameStateResource = preload("res://scripts/game_state.gd")
 const TeamDataResource = preload("res://scripts/team_data.gd")
 const MapEditorScene = preload("res://scenes/map_editor.tscn")
+const TurnManagerResource = preload("res://scripts/turn_manager.gd")
+const CpuControllerResource = preload("res://scripts/cpu_controller.gd")
 
 const UNIT_STATS := {
 	"Patrol": {"cost": 100, "hp": 3, "move": 3, "range": 1, "damage": 1, "short": "PT", "air": false, "target": "any"},
@@ -20,6 +22,7 @@ var kills := 0
 var turn := 1
 var game_over := false
 var map_editor
+var turn_manager
 
 @onready var board = $MapBoard
 @onready var status_label: Label = $Hud/StatusLabel
@@ -33,15 +36,20 @@ var map_editor
 @onready var fighter_button: Button = $Hud/AirPanel/FighterButton
 @onready var bomber_button: Button = $Hud/AirPanel/BomberButton
 @onready var map_editor_button: Button = $Hud/MapEditorButton
+@onready var turn_overlay: Control = $TurnOverlay
+@onready var turn_overlay_label: Label = $TurnOverlay/Message
 
 func _ready() -> void:
 	state = GameStateResource.new()
 	state.initialize_default()
+	turn_manager = TurnManagerResource.new()
+	turn_manager.begin_match(state)
 	board.cell_pressed.connect(_on_cell_pressed)
 	board.unit_pressed.connect(_on_unit_pressed)
 	_connect_buttons()
 	_redraw_board()
 	_update_hud("Capture an enemy port or destroy every enemy unit to win. Drag to pan; wheel or pinch to zoom.")
+	_begin_current_turn()
 
 func _connect_buttons() -> void:
 	end_turn_button.pressed.connect(_end_player_turn)
@@ -55,7 +63,7 @@ func _connect_buttons() -> void:
 	map_editor_button.pressed.connect(_open_map_editor)
 
 func _open_map_editor() -> void:
-	if map_editor != null:
+	if map_editor != null or _player_input_locked():
 		return
 	map_editor = MapEditorScene.instantiate()
 	add_child(map_editor)
@@ -83,17 +91,17 @@ func _start_custom_match(map_data) -> void:
 	kills = 0
 	turn = 1
 	game_over = false
-	for button in [end_turn_button, patrol_button, destroyer_button, carrier_button, anti_air_button, jet_button, fighter_button, bomber_button]:
-		button.disabled = false
+	turn_manager.begin_match(state)
 	_close_map_editor()
 	_redraw_board()
-	_update_hud("Custom map started. Drag to pan; wheel or pinch to zoom.")
+	_update_hud("Custom map started. Prepare to hand off the device.")
+	_begin_current_turn()
 
 func _redraw_board() -> void:
 	board.set_match(state.map_data, state.units, selected_unit_id, state.current_team().id, UNIT_STATS)
 
 func _on_cell_pressed(cell: Vector2i) -> void:
-	if game_over or not state.map_data.is_inside(cell):
+	if _player_input_locked() or not state.map_data.is_inside(cell):
 		return
 	if selected_unit_id == -1:
 		_update_hud("Select one of your boats first.")
@@ -107,26 +115,10 @@ func _on_cell_pressed(cell: Vector2i) -> void:
 	if state.unit_id_at(cell) != -1:
 		_update_hud("That space is occupied. Tap an enemy unit to attack it.")
 		return
-	if selected["moved"]:
-		_update_hud("That unit already moved this turn.")
-		return
-	var stats: Dictionary = UNIT_STATS[selected["kind"]]
-	if not _can_occupy_terrain(stats, cell):
-		_update_hud("Only air units can land on mountain terrain.")
-		return
-	if _grid_distance(selected["grid"], cell) > stats["move"]:
-		_update_hud("Too far. %s can move %d spaces." % [selected["kind"], stats["move"]])
-		return
-	state.set_unit_grid(selected_unit_id, cell)
-	state.set_unit_flag(selected_unit_id, "moved", true)
-	if state.is_enemy_port(cell, state.current_team().id):
-		_finish_game(state.current_team().id, "Your fleet captured the enemy port!")
-		return
-	_update_hud("Moved %s. You can still attack if an enemy is in range." % selected["kind"])
-	_redraw_board()
+	_execute_human_command({"type": "move", "team_id": state.current_team().id, "unit_id": selected_unit_id, "cell": cell})
 
 func _on_unit_pressed(unit_id: int) -> void:
-	if game_over:
+	if _player_input_locked():
 		return
 	var unit: Dictionary = state.unit_by_id(unit_id)
 	if unit.is_empty():
@@ -142,63 +134,99 @@ func _on_unit_pressed(unit_id: int) -> void:
 	_attack(selected_unit_id, unit_id)
 
 func _attack(attacker_id: int, defender_id: int) -> void:
-	var attacker: Dictionary = state.unit_by_id(attacker_id)
-	var defender: Dictionary = state.unit_by_id(defender_id)
-	if attacker.is_empty() or defender.is_empty() or attacker["attacked"]:
-		return
-	var stats: Dictionary = UNIT_STATS[attacker["kind"]]
-	if not _can_attack(stats, UNIT_STATS[defender["kind"]]) or _grid_distance(attacker["grid"], defender["grid"]) > stats["range"]:
-		_update_hud("Enemy is out of range or cannot be targeted by %s." % attacker["kind"])
-		return
-	state.set_unit_flag(attacker_id, "attacked", true)
-	var damage: int = state.damage_unit(defender_id, stats["damage"], _defense_for(defender))
-	if state.unit_by_id(defender_id).is_empty():
-		kills += 1
-		state.current_team().money += 50
-		if state.count_units_for_team(defender["team_id"]) == 0:
-			_finish_game(state.current_team().id, "All enemy units were destroyed!")
-			return
-		_update_hud("Enemy destroyed! +$50 bounty. End turn or keep commanding.")
-	else:
-		_update_hud("Hit %s for %d damage." % [defender["kind"], damage])
-	_redraw_board()
+	_execute_human_command({"type": "attack", "team_id": state.current_team().id, "unit_id": attacker_id, "target_id": defender_id})
 
 func _build_boat(kind: String) -> void:
-	var port: Vector2i = state.port_for_team(state.current_team().id)
-	var stats: Dictionary = UNIT_STATS[kind]
-	if game_over or port == Vector2i(-1, -1) or state.unit_id_at(port) != -1 or state.current_team().money < stats["cost"]:
-		_update_hud("Build requires an open port and enough money.")
+	if _player_input_locked():
 		return
-	state.current_team().money -= stats["cost"]
-	state.add_unit(kind, state.current_team().id, port, stats["hp"])
-	_update_hud("Built %s at your port." % kind)
-	_redraw_board()
+	_execute_human_command({"type": "build", "team_id": state.current_team().id, "kind": kind})
 
 func _build_air_from_selected_ac(kind: String) -> void:
-	var carrier: Dictionary = state.unit_by_id(selected_unit_id)
-	var stats: Dictionary = UNIT_STATS[kind]
-	if game_over or carrier.is_empty() or carrier["team_id"] != state.current_team().id or carrier["kind"] != "Aircraft Carrier" or state.current_team().money < stats["cost"]:
-		_update_hud("Select your Aircraft Carrier and ensure you have enough money.")
+	if _player_input_locked():
 		return
-	var spawn := _first_open_neighbor(carrier["grid"], stats)
-	if spawn == Vector2i(-1, -1):
-		_update_hud("No open launch space beside the AC.")
-		return
-	state.current_team().money -= stats["cost"]
-	state.add_unit(kind, state.current_team().id, spawn, stats["hp"])
-	_update_hud("AC launched a %s air unit." % kind)
-	_redraw_board()
+	_execute_human_command({"type": "launch", "team_id": state.current_team().id, "unit_id": selected_unit_id, "kind": kind})
 
 func _end_player_turn() -> void:
+	if _player_input_locked():
+		return
+	_advance_turn()
+
+func _execute_human_command(command: Dictionary) -> void:
+	var result := state.execute_command(command, UNIT_STATS)
+	_apply_command_result(result)
+
+func _apply_command_result(result: Dictionary) -> bool:
+	if not result.get("ok", false):
+		_update_hud(result.get("message", "That action is not legal."))
+		return false
+	if result.get("destroyed", false):
+		kills += 1
+	if result.has("winner"):
+		_finish_game(int(result["winner"]), result["message"])
+		return true
+	_update_hud(result["message"])
+	_redraw_board()
+	return true
+
+func _begin_current_turn() -> void:
 	if game_over:
 		return
 	selected_unit_id = -1
-	state.advance_turn()
-	turn += 1
-	state.current_team().money += 60 + state.count_units_for_team(state.current_team().id) * 15 + kills * 10
-	state.reset_actions(state.current_team().id)
-	_update_hud("Turn %d. Team %s is ready." % [turn, state.current_team().name])
+	turn_manager.lock_input()
+	_refresh_controls()
 	_redraw_board()
+	var team = turn_manager.current_team()
+	if team.is_cpu():
+		turn_overlay.visible = false
+		_update_hud("%s is planning a move. Player controls are locked." % team.name)
+		_run_cpu_turn()
+		return
+	turn_overlay_label.text = "Pass the device to\n%s" % team.name
+	turn_overlay_label.modulate = team.color
+	turn_overlay.visible = true
+	_update_hud("Prepare the hand-off to %s." % team.name)
+	await get_tree().create_timer(5.0).timeout
+	if game_over or not is_instance_valid(self):
+		return
+	turn_overlay.visible = false
+	turn_manager.unlock_human_input()
+	_refresh_controls()
+	_update_hud("Turn %d. %s is ready." % [turn, team.name])
+
+func _run_cpu_turn() -> void:
+	while not game_over:
+		var command := CpuControllerResource.next_command(state, UNIT_STATS)
+		if command.is_empty():
+			break
+		selected_unit_id = int(command.get("unit_id", -1))
+		_redraw_board()
+		_update_hud("%s is choosing an action." % state.current_team().name)
+		await get_tree().create_timer(0.35).timeout
+		if game_over:
+			return
+		var result := state.execute_command(command, UNIT_STATS)
+		if not _apply_command_result(result):
+			break
+		if game_over:
+			return
+		await get_tree().create_timer(1.5).timeout
+	selected_unit_id = -1
+	_advance_turn()
+
+func _advance_turn() -> void:
+	if game_over:
+		return
+	turn += 1
+	turn_manager.advance_turn()
+	_begin_current_turn()
+
+func _player_input_locked() -> bool:
+	return game_over or turn_manager == null or turn_manager.input_locked or state.current_team().is_cpu()
+
+func _refresh_controls() -> void:
+	var locked := _player_input_locked()
+	for button in [end_turn_button, patrol_button, destroyer_button, carrier_button, anti_air_button, jet_button, fighter_button, bomber_button, map_editor_button]:
+		button.disabled = locked
 
 func _first_open_neighbor(cell: Vector2i, stats: Dictionary) -> Vector2i:
 	for direction in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
@@ -224,8 +252,9 @@ func _defense_for(unit: Dictionary) -> int:
 func _finish_game(winner: int, message: String) -> void:
 	game_over = true
 	selected_unit_id = -1
-	for button in [end_turn_button, patrol_button, destroyer_button, carrier_button, anti_air_button, jet_button, fighter_button, bomber_button]:
-		button.disabled = true
+	turn_manager.lock_input()
+	turn_overlay.visible = false
+	_refresh_controls()
 	_update_hud("%s %s" % [state.team_by_id(winner).name + " wins!", message])
 	_redraw_board()
 
@@ -234,7 +263,7 @@ func _update_hud(message: String) -> void:
 	status_label.text = "Turn %d  %s  Money $%d  Fleet %d  Kills %d" % [turn, team.name, team.money, state.count_units_for_team(team.id), kills]
 	help_label.text = message
 	var selected: Dictionary = state.unit_by_id(selected_unit_id)
-	var disable_air: bool = selected.is_empty() or selected["kind"] != "Aircraft Carrier" or selected["team_id"] != team.id or game_over
+	var disable_air: bool = selected.is_empty() or selected["kind"] != "Aircraft Carrier" or selected["team_id"] != team.id or _player_input_locked()
 	jet_button.disabled = disable_air
 	fighter_button.disabled = disable_air
 	bomber_button.disabled = disable_air
