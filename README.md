@@ -1,5 +1,21 @@
 # Henry's Boats
 
+<!-- aidevops:badges:start -->
+<!-- managed by aidevops badges; edit the template, not this block -->
+<!-- Build & Quality Status -->
+
+<!-- License & Legal -->
+[![License](https://img.shields.io/badge/license-see%20file-yellow.svg)](https://github.com/superdav42/henrys-boats/blob/main/LICENSE)
+
+<!-- Repository Metrics -->
+[![Lines of code](docs/metrics/badges/loc.svg)](docs/metrics/repo-metrics.md)
+[![Languages by lines of code](docs/metrics/badges/languages.svg)](docs/metrics/repo-metrics.md)
+[![Dependencies](docs/metrics/badges/dependencies.svg)](docs/metrics/repo-metrics.md)
+
+<!-- Project Links -->
+[![GitHub repository](https://img.shields.io/badge/github-repository-181717.svg?logo=github)](https://github.com/superdav42/henrys-boats)
+<!-- aidevops:badges:end -->
+
 A Godot 4.7 2D mobile prototype for a turn-based boat combat game on a water grid.
 
 ## Current gameplay
@@ -45,3 +61,18 @@ workflow publishes the generated `site/` directory; it is not committed.
 - scenes/main.tscn: main game scene.
 - scripts/main.gd: grid, units, movement, combat, building, turns, and income.
 - docs/mobile-notes.md: next steps for Android/iOS export setup.
+
+<!-- aidevops:managed-readme:start -->
+<!-- managed by aidevops; refresh with managed-readme-helper.sh sync -->
+## Star History
+
+![superdav42/henrys-boats stars over time](docs/assets/star-history.svg)
+
+## Built with aidevops
+
+This project was created and is maintained with
+[aidevops.sh](https://aidevops.sh).
+
+[View superdav42 on GitHub](https://github.com/superdav42) ·
+[aidevops repository](https://github.com/marcusquinn/aidevops)
+<!-- aidevops:managed-readme:end -->

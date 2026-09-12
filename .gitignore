@@ -17,3 +17,10 @@ site/
 Thumbs.db
 .vscode/
 .idea/
+
+# aidevops runtime artifacts
+.agents/loop-state/
+.agents/tmp/
+.agents/memory/
+.aidevops.json
+.beads
