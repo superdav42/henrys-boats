@@ -71,7 +71,7 @@ Format: `- [ ] tNNN Description @owner #tag ~estimate risk:level logged:date`
 
 ## Backlog
 
-- [ ] t6 Add home, match setup, and permanent upgrades #auto-dispatch #tier:standard blocked-by:t5 ~4h risk:med ref:GH#3 logged:2026-09-12
+- [x] t6 Add home, match setup, and permanent upgrades #auto-dispatch #tier:standard blocked-by:t5 ~4h risk:med ref:GH#3 logged:2026-09-12 pr:#12 completed:2026-09-12
 - [x] t7 Add custom-map editor, validation, and JSON import/export #auto-dispatch #tier:standard blocked-by:t5 ~4h risk:high ref:GH#4 logged:2026-09-12 pr:#10 completed:2026-09-12
 - [x] t8 Add hot-seat teams and paced CPU turns #auto-dispatch #tier:standard blocked-by:t5 ~4h risk:high ref:GH#5 logged:2026-09-12 pr:#11 completed:2026-09-12
 - [ ] t9 Add map/unit inspection, range overlays, and end-to-end verification #auto-dispatch #tier:standard blocked-by:t6,t7,t8 ~4h risk:high ref:GH#6 logged:2026-09-12
