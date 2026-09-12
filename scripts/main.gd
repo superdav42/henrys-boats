@@ -3,8 +3,12 @@ extends Node2D
 const GameStateResource = preload("res://scripts/game_state.gd")
 const TeamDataResource = preload("res://scripts/team_data.gd")
 const MapEditorScene = preload("res://scenes/map_editor.tscn")
+const SetupMenuScene = preload("res://scenes/setup_menu.tscn")
+const UpgradeScreenScene = preload("res://scenes/upgrade_screen.tscn")
 const TurnManagerResource = preload("res://scripts/turn_manager.gd")
 const CpuControllerResource = preload("res://scripts/cpu_controller.gd")
+const SaveStoreResource = preload("res://scripts/save_store.gd")
+const UpgradeCatalogResource = preload("res://scripts/upgrade_catalog.gd")
 
 const UNIT_STATS := {
 	"Patrol": {"cost": 100, "hp": 3, "move": 3, "range": 1, "damage": 1, "short": "PT", "air": false, "target": "any"},
@@ -22,7 +26,10 @@ var kills := 0
 var turn := 1
 var game_over := false
 var map_editor
+var setup_menu
+var upgrade_screen
 var turn_manager
+var unit_stats: Dictionary = UNIT_STATS.duplicate(true)
 
 @onready var board = $MapBoard
 @onready var status_label: Label = $Hud/StatusLabel
@@ -38,18 +45,13 @@ var turn_manager
 @onready var map_editor_button: Button = $Hud/MapEditorButton
 @onready var turn_overlay: Control = $TurnOverlay
 @onready var turn_overlay_label: Label = $TurnOverlay/Message
+@onready var home = $Home
 
 func _ready() -> void:
-	state = GameStateResource.new()
-	state.initialize_default()
-	turn_manager = TurnManagerResource.new()
-	turn_manager.begin_match(state)
 	board.cell_pressed.connect(_on_cell_pressed)
 	board.unit_pressed.connect(_on_unit_pressed)
 	_connect_buttons()
-	_redraw_board()
-	_update_hud("Capture an enemy port or destroy every enemy unit to win. Drag to pan; wheel or pinch to zoom.")
-	_begin_current_turn()
+	_show_home()
 
 func _connect_buttons() -> void:
 	end_turn_button.pressed.connect(_end_player_turn)
@@ -61,6 +63,49 @@ func _connect_buttons() -> void:
 	fighter_button.pressed.connect(_build_air_from_selected_ac.bind("Fighter"))
 	bomber_button.pressed.connect(_build_air_from_selected_ac.bind("Bomber"))
 	map_editor_button.pressed.connect(_open_map_editor)
+	$Home/PlayButton.pressed.connect(_open_setup)
+	$Home/UpgradesButton.pressed.connect(_open_upgrades)
+	$Home/MapEditorButton.pressed.connect(_open_map_editor)
+
+func _show_home() -> void:
+	home.visible = true
+	$Hud.visible = false
+	board.visible = false
+	turn_overlay.visible = false
+
+func _open_setup() -> void:
+	if setup_menu != null:
+		return
+	setup_menu = SetupMenuScene.instantiate()
+	add_child(setup_menu)
+	setup_menu.cancelled.connect(_close_setup)
+	setup_menu.match_configured.connect(_start_configured_match)
+	setup_menu.map_editor_requested.connect(_open_map_editor_from_setup)
+	home.visible = false
+
+func _close_setup() -> void:
+	if setup_menu != null:
+		setup_menu.queue_free()
+		setup_menu = null
+	_show_home()
+
+func _open_upgrades() -> void:
+	if upgrade_screen != null:
+		return
+	upgrade_screen = UpgradeScreenScene.instantiate()
+	add_child(upgrade_screen)
+	upgrade_screen.cancelled.connect(_close_upgrades)
+	home.visible = false
+
+func _close_upgrades() -> void:
+	if upgrade_screen != null:
+		upgrade_screen.queue_free()
+		upgrade_screen = null
+	_show_home()
+
+func _open_map_editor_from_setup() -> void:
+	_close_setup()
+	_open_map_editor()
 
 func _open_map_editor() -> void:
 	if map_editor != null or _player_input_locked():
@@ -70,35 +115,69 @@ func _open_map_editor() -> void:
 	map_editor.cancelled.connect(_close_map_editor)
 	map_editor.map_selected.connect(_start_custom_match)
 	$Hud.visible = false
+	home.visible = false
 
 func _close_map_editor() -> void:
 	if map_editor == null:
 		return
 	map_editor.queue_free()
 	map_editor = null
-	$Hud.visible = true
+	_show_home()
 
 func _start_custom_match(map_data) -> void:
-	if map_data == null or not map_data.is_valid():
+	if map_data == null:
 		return
+	var controllers: Array[String] = []
+	for team_id in map_data.ports.size():
+		controllers.append("human" if team_id == 0 else "cpu")
+	_start_configured_match({"map": map_data, "controllers": controllers})
+
+func _start_configured_match(configuration: Dictionary) -> void:
+	var map_data = configuration.get("map")
+	var controllers: Variant = configuration.get("controllers", [])
+	if map_data == null or not map_data.is_valid() or not controllers is Array or controllers.size() != map_data.ports.size() or controllers.size() < 2 or controllers.size() > 8:
+		return
+	var profile := SaveStoreResource.load_profile()
+	unit_stats = _unit_stats_for_profile(profile)
+	var effects := UpgradeCatalogResource.effects(profile)
 	state = GameStateResource.new()
 	state.map_data = map_data
-	state.teams = TeamDataResource.create_teams(map_data.ports.size(), map_data.starting_money)
+	state.teams = TeamDataResource.create_teams(map_data.ports.size(), map_data.starting_money + effects["starting_money_bonus"])
+	for team_id in state.teams.size():
+		state.teams[team_id].controller_type = controllers[team_id]
 	for unit in map_data.starting_units:
-		var stats: Dictionary = UNIT_STATS[unit["kind"]]
+		var stats: Dictionary = unit_stats[unit["kind"]]
 		state.add_unit(unit["kind"], unit["team_id"], unit["cell"], stats["hp"])
 	selected_unit_id = -1
 	kills = 0
 	turn = 1
 	game_over = false
 	turn_manager.begin_match(state)
-	_close_map_editor()
+	if map_editor != null:
+		map_editor.queue_free()
+		map_editor = null
+	if setup_menu != null:
+		setup_menu.queue_free()
+		setup_menu = null
+	home.visible = false
+	board.visible = true
+	$Hud.visible = true
 	_redraw_board()
-	_update_hud("Custom map started. Prepare to hand off the device.")
+	_update_hud("Match started. Prepare to hand off the device.")
 	_begin_current_turn()
 
+func _unit_stats_for_profile(profile: Dictionary) -> Dictionary:
+	var adjusted: Dictionary = UNIT_STATS.duplicate(true)
+	var effects := UpgradeCatalogResource.effects(profile)
+	for kind in adjusted:
+		if adjusted[kind]["air"]:
+			adjusted[kind]["move"] += effects["air_move_bonus"]
+		else:
+			adjusted[kind]["hp"] += effects["water_hp_bonus"]
+	return adjusted
+
 func _redraw_board() -> void:
-	board.set_match(state.map_data, state.units, selected_unit_id, state.current_team().id, UNIT_STATS)
+	board.set_match(state.map_data, state.units, selected_unit_id, state.current_team().id, unit_stats)
 
 func _on_cell_pressed(cell: Vector2i) -> void:
 	if _player_input_locked() or not state.map_data.is_inside(cell):
@@ -152,7 +231,7 @@ func _end_player_turn() -> void:
 	_advance_turn()
 
 func _execute_human_command(command: Dictionary) -> void:
-	var result := state.execute_command(command, UNIT_STATS)
+	var result := state.execute_command(command, unit_stats)
 	_apply_command_result(result)
 
 func _apply_command_result(result: Dictionary) -> bool:
@@ -195,7 +274,7 @@ func _begin_current_turn() -> void:
 
 func _run_cpu_turn() -> void:
 	while not game_over:
-		var command := CpuControllerResource.next_command(state, UNIT_STATS)
+		var command := CpuControllerResource.next_command(state, unit_stats)
 		if command.is_empty():
 			break
 		selected_unit_id = int(command.get("unit_id", -1))
@@ -204,7 +283,7 @@ func _run_cpu_turn() -> void:
 		await get_tree().create_timer(0.35).timeout
 		if game_over:
 			return
-		var result := state.execute_command(command, UNIT_STATS)
+		var result := state.execute_command(command, unit_stats)
 		if not _apply_command_result(result):
 			break
 		if game_over:
@@ -245,7 +324,7 @@ func _can_attack(attacker: Dictionary, defender: Dictionary) -> bool:
 	return attacker["target"] == "any" or (attacker["target"] == "air" and defender["air"]) or (attacker["target"] == "surface" and not defender["air"])
 
 func _defense_for(unit: Dictionary) -> int:
-	var stats: Dictionary = UNIT_STATS[unit["kind"]]
+	var stats: Dictionary = unit_stats[unit["kind"]]
 	var terrain: String = state.map_data.terrain_at(unit["grid"])
 	return 2 if stats["air"] and terrain == "Mountain" else (1 if not stats["air"] and terrain == "Reef" else 0)
 

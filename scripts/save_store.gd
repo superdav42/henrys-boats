@@ -2,22 +2,59 @@ class_name SaveStore
 extends RefCounted
 
 const MapDataResource = preload("res://scripts/map_data.gd")
+const UpgradeCatalogResource = preload("res://scripts/upgrade_catalog.gd")
 const PROFILE_PATH := "user://profile.json"
 const MAP_DIRECTORY := "user://maps"
 
 static func load_profile() -> Dictionary:
+	var default_profile := default_profile()
 	if not FileAccess.file_exists(PROFILE_PATH):
-		return {"version": 1, "upgrades": []}
+		return default_profile
 	var file := FileAccess.open(PROFILE_PATH, FileAccess.READ)
+	if file == null:
+		return default_profile
 	var parsed = JSON.parse_string(file.get_as_text())
-	return parsed if parsed is Dictionary else {"version": 1, "upgrades": []}
+	return normalized_profile(parsed) if parsed is Dictionary else default_profile
 
 static func save_profile(profile: Dictionary) -> Error:
-	var file := FileAccess.open(PROFILE_PATH, FileAccess.WRITE)
+	var normalized := normalized_profile(profile)
+	if normalized.is_empty():
+		return ERR_INVALID_DATA
+	var temporary_path := "%s.tmp" % PROFILE_PATH
+	var file := FileAccess.open(temporary_path, FileAccess.WRITE)
 	if file == null:
 		return FileAccess.get_open_error()
-	file.store_string(JSON.stringify(profile))
-	return OK
+	file.store_string(JSON.stringify(normalized))
+	file.flush()
+	file = null
+	return DirAccess.rename_absolute(temporary_path, PROFILE_PATH)
+
+static func default_profile() -> Dictionary:
+	return {"version": 1, "upgrades": [], "currency": 1500}
+
+static func normalized_profile(profile: Variant) -> Dictionary:
+	if not profile is Dictionary or int(profile.get("version", 1)) != 1:
+		return {}
+	var upgrades: Variant = profile.get("upgrades", [])
+	if not upgrades is Array:
+		return {}
+	var known_upgrades: Array[String] = []
+	for upgrade_id in upgrades:
+		if not upgrade_id is String or not UpgradeCatalogResource.UPGRADES.has(upgrade_id):
+			return {}
+		if not upgrade_id in known_upgrades:
+			known_upgrades.append(upgrade_id)
+	var currency: Variant = profile.get("currency", default_profile()["currency"])
+	if not currency is int or currency < 0:
+		return {}
+	return {"version": 1, "upgrades": known_upgrades, "currency": currency}
+
+static func reset_profile(confirmed: bool) -> Error:
+	if not confirmed:
+		return ERR_UNAUTHORIZED
+	if not FileAccess.file_exists(PROFILE_PATH):
+		return OK
+	return DirAccess.remove_absolute(PROFILE_PATH)
 
 static func list_maps() -> PackedStringArray:
 	var maps := PackedStringArray()
