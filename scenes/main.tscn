@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://danielmain00001"]
+[gd_scene load_steps=3 format=3 uid="uid://danielmain00001"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main_script"]
+[ext_resource type="PackedScene" path="res://scenes/map_board.tscn" id="2_map_board"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main_script")
@@ -10,9 +11,7 @@ offset_right = 720.0
 offset_bottom = 1280.0
 color = Color(0.0392157, 0.101961, 0.172549, 1)
 
-[node name="BoardLayer" type="Node2D" parent="."]
-
-[node name="UnitLayer" type="Node2D" parent="."]
+[node name="MapBoard" parent="." instance=ExtResource("2_map_board")]
 
 [node name="Hud" type="CanvasLayer" parent="."]
 
