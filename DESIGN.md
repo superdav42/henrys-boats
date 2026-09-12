@@ -74,6 +74,7 @@ Buttons and inputs use 8px corners; grouped menu panels may use 16px corners. Do
 - Controls have visible text labels, keyboard focus, disabled states, and direct validation feedback.
 - Back is always available from match setup, upgrades, and map editing and returns to home rather than leaving the player stranded.
 - Selection controls use the surface colour and bright text; errors remain visible until the player makes a corrective action.
+- The in-match inspector uses a dark surface card with text labels for terrain, unit facts, and defence. Legal movement uses green overlays; legal attacks use coral overlays, and neither colour is the only source of meaning because the inspector and invalid-action message explain the rules.
 
 ### Navigation
 

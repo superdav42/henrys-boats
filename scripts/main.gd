@@ -46,6 +46,7 @@ var unit_stats: Dictionary = UNIT_STATS.duplicate(true)
 @onready var turn_overlay: Control = $TurnOverlay
 @onready var turn_overlay_label: Label = $TurnOverlay/Message
 @onready var home = $Home
+@onready var inspector = $InspectorPanel
 
 func _ready() -> void:
 	board.cell_pressed.connect(_on_cell_pressed)
@@ -73,6 +74,7 @@ func _show_home() -> void:
 	$Hud.visible = false
 	board.visible = false
 	turn_overlay.visible = false
+	inspector.clear()
 
 func _open_setup() -> void:
 	if setup_menu != null:
@@ -153,6 +155,7 @@ func _start_configured_match(configuration: Dictionary) -> void:
 	kills = 0
 	turn = 1
 	game_over = false
+	inspector.clear()
 	turn_manager.begin_match(state)
 	if map_editor != null:
 		map_editor.queue_free()
@@ -183,6 +186,7 @@ func _redraw_board() -> void:
 func _on_cell_pressed(cell: Vector2i) -> void:
 	if _player_input_locked() or not state.map_data.is_inside(cell):
 		return
+	_show_cell_inspector(cell)
 	if selected_unit_id == -1:
 		_update_hud("Select one of your boats first.")
 		return
@@ -203,6 +207,7 @@ func _on_unit_pressed(unit_id: int) -> void:
 	var unit: Dictionary = state.unit_by_id(unit_id)
 	if unit.is_empty():
 		return
+	_show_unit_inspector(unit)
 	if unit["team_id"] == state.current_team().id:
 		selected_unit_id = unit_id
 		_update_hud("Selected %s. Move, attack, or build from the port/AC." % unit["kind"])
@@ -246,12 +251,14 @@ func _apply_command_result(result: Dictionary) -> bool:
 		return true
 	_update_hud(result["message"])
 	_redraw_board()
+	_show_selected_inspector()
 	return true
 
 func _begin_current_turn() -> void:
 	if game_over:
 		return
 	selected_unit_id = -1
+	inspector.clear()
 	turn_manager.lock_input()
 	_refresh_controls()
 	_redraw_board()
@@ -291,6 +298,7 @@ func _run_cpu_turn() -> void:
 			return
 		await get_tree().create_timer(1.5).timeout
 	selected_unit_id = -1
+	inspector.clear()
 	_advance_turn()
 
 func _advance_turn() -> void:
@@ -332,6 +340,7 @@ func _defense_for(unit: Dictionary) -> int:
 func _finish_game(winner: int, message: String) -> void:
 	game_over = true
 	selected_unit_id = -1
+	inspector.clear()
 	turn_manager.lock_input()
 	turn_overlay.visible = false
 	_refresh_controls()
@@ -347,3 +356,31 @@ func _update_hud(message: String) -> void:
 	jet_button.disabled = disable_air
 	fighter_button.disabled = disable_air
 	bomber_button.disabled = disable_air
+
+func _show_selected_inspector() -> void:
+	var selected: Dictionary = state.unit_by_id(selected_unit_id)
+	if selected.is_empty():
+		inspector.clear()
+		return
+	_show_unit_inspector(selected)
+
+func _show_cell_inspector(cell: Vector2i) -> void:
+	var terrain: String = state.map_data.terrain_at(cell)
+	var terrain_defense := "Reef gives surface units +1 defence." if terrain == "Reef" else ("Mountain gives air units +2 defence." if terrain == "Mountain" else "Water gives no terrain defence.")
+	inspector.show_snapshot({"title": "%s at %d, %d" % [terrain, cell.x + 1, cell.y + 1], "details": PackedStringArray(["Terrain defence: %s" % terrain_defense, "Select one of your units to see legal movement and attack ranges."])})
+
+func _show_unit_inspector(unit: Dictionary) -> void:
+	var stats: Dictionary = unit_stats.get(unit.get("kind", ""), {})
+	if stats.is_empty():
+		inspector.clear()
+		return
+	var cell: Vector2i = unit.get("grid", Vector2i(-1, -1))
+	var terrain: String = state.map_data.terrain_at(cell)
+	var team = state.team_by_id(int(unit.get("team_id", 0)))
+	var target_label := "any unit" if stats.get("target", "any") == "any" else ("air units only" if stats.get("target") == "air" else "surface units only")
+	var details := PackedStringArray([
+		"Team: %s  •  HP: %d" % [team.name, int(unit.get("hp", 0))],
+		"Move %d  •  Range %d  •  Attack %d" % [int(stats.get("move", 0)), int(stats.get("range", 0)), int(stats.get("damage", 0))],
+		"Targets: %s  •  Active defence: %d (%s)" % [target_label, _defense_for(unit), terrain],
+	])
+	inspector.show_snapshot({"title": "%s at %d, %d" % [unit.get("kind", "Unit"), cell.x + 1, cell.y + 1], "details": details})

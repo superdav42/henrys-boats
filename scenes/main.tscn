@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://danielmain00001"]
+[gd_scene load_steps=4 format=3 uid="uid://danielmain00001"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_main_script"]
 [ext_resource type="PackedScene" path="res://scenes/map_board.tscn" id="2_map_board"]
+[ext_resource type="PackedScene" path="res://scenes/inspector_panel.tscn" id="3_inspector_panel"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_main_script")
@@ -12,6 +13,9 @@ offset_bottom = 1280.0
 color = Color(0.0392157, 0.101961, 0.172549, 1)
 
 [node name="MapBoard" parent="." instance=ExtResource("2_map_board")]
+visible = false
+
+[node name="InspectorPanel" parent="." instance=ExtResource("3_inspector_panel")]
 visible = false
 
 [node name="Home" type="CanvasLayer" parent="."]
