@@ -53,7 +53,7 @@ func _draw() -> void:
 		for x in map_data.width:
 			var cell := Vector2i(x, y)
 			var rect := Rect2(pan + Vector2(cell) * BASE_CELL_SIZE * zoom_level, Vector2.ONE * BASE_CELL_SIZE * zoom_level)
-			_draw_terrain(rect, map_data.terrain_at(cell))
+			_draw_terrain(rect, map_data.terrain_at(cell), cell)
 			draw_rect(rect, Color(0.72, 0.9, 0.98, 0.48), false, maxf(1.0, zoom_level))
 			if cell in move_overlay:
 				_draw_overlay_marker(rect, Color(0.2, 0.85, 0.55, 0.72), "M")
@@ -64,16 +64,14 @@ func _draw() -> void:
 		_draw_port_marker(rect, _team_color(port["team_id"]))
 	for unit in units:
 		var cell: Vector2i = unit.get("cell", unit.get("grid", Vector2i(-1, -1)))
-		if not map_data.is_inside(cell):
+		if not map_data.is_inside(cell) or not _unit_is_visible(unit):
 			continue
 		_draw_unit(_cell_rect(cell), unit)
 
-func _draw_terrain(rect: Rect2, terrain: String) -> void:
+func _draw_terrain(rect: Rect2, terrain: String, cell: Vector2i) -> void:
 	match terrain:
 		"Shore":
-			draw_rect(rect, Color("dcbf77"))
-			for row in range(1, 4):
-				draw_line(Vector2(rect.position.x, rect.position.y + rect.size.y * row / 4.0), Vector2(rect.end.x, rect.position.y + rect.size.y * row / 4.0), Color("f5e4ad"), maxf(1.0, zoom_level))
+			_draw_shore(rect, cell)
 		"Land":
 			draw_rect(rect, Color("4b8a4b"))
 			for dot in [Vector2(0.22, 0.3), Vector2(0.68, 0.22), Vector2(0.45, 0.7), Vector2(0.82, 0.78)]:
@@ -82,6 +80,11 @@ func _draw_terrain(rect: Rect2, terrain: String) -> void:
 			draw_rect(rect, Color("5f8050"))
 			_draw_mountain(rect, 0.16, 0.9, 0.5, 0.16, 0.84, 0.9, Color("756653"))
 			_draw_mountain(rect, 0.38, 0.9, 0.69, 0.32, 0.96, 0.9, Color("554b45"))
+		"Snow Mountain":
+			draw_rect(rect, Color("58734b"))
+			_draw_mountain(rect, 0.1, 0.92, 0.48, 0.08, 0.86, 0.92, Color("59616b"))
+			var snow := PackedVector2Array([rect.position + rect.size * Vector2(0.31, 0.45), rect.position + rect.size * Vector2(0.48, 0.08), rect.position + rect.size * Vector2(0.65, 0.45), rect.position + rect.size * Vector2(0.55, 0.38), rect.position + rect.size * Vector2(0.48, 0.48), rect.position + rect.size * Vector2(0.4, 0.37)])
+			draw_colored_polygon(snow, Color("f2f7fb"))
 		"Reef":
 			_draw_water(rect)
 			for reef in [Vector2(0.28, 0.35), Vector2(0.64, 0.56), Vector2(0.46, 0.75)]:
@@ -94,6 +97,24 @@ func _draw_terrain(rect: Rect2, terrain: String) -> void:
 			draw_polyline(river, Color("68c9e8"), 5.0 * zoom_level, true)
 		_:
 			_draw_water(rect)
+
+func _draw_shore(rect: Rect2, cell: Vector2i) -> void:
+	_draw_water(rect)
+	var sand := Color("dcbf77")
+	var foam := Color("f5e4ad")
+	var center := Rect2(rect.position + rect.size * 0.28, rect.size * 0.44)
+	draw_rect(center, sand)
+	var land_neighbors := {
+		Vector2i.UP: Rect2(rect.position + Vector2(rect.size.x * 0.28, 0), Vector2(rect.size.x * 0.44, rect.size.y * 0.5)),
+		Vector2i.DOWN: Rect2(rect.position + Vector2(rect.size.x * 0.28, rect.size.y * 0.5), Vector2(rect.size.x * 0.44, rect.size.y * 0.5)),
+		Vector2i.LEFT: Rect2(rect.position + Vector2(0, rect.size.y * 0.28), Vector2(rect.size.x * 0.5, rect.size.y * 0.44)),
+		Vector2i.RIGHT: Rect2(rect.position + Vector2(rect.size.x * 0.5, rect.size.y * 0.28), Vector2(rect.size.x * 0.5, rect.size.y * 0.44)),
+	}
+	for direction in land_neighbors:
+		var neighbor: Vector2i = cell + Vector2i(direction)
+		if map_data.is_inside(neighbor) and map_data.terrain_at(neighbor) in ["Land", "Mountain", "Snow Mountain"]:
+			draw_rect(land_neighbors[direction], sand)
+	draw_rect(center, foam, false, maxf(1.0, zoom_level))
 
 func _draw_water(rect: Rect2) -> void:
 	draw_rect(rect, Color("176a9f"))
@@ -139,6 +160,12 @@ func _draw_unit(cell_rect: Rect2, unit: Dictionary) -> void:
 		draw_string(ThemeDB.fallback_font, rect.position + Vector2(2.0, rect.size.y - 2.0), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11.0 * zoom_level, Color.WHITE)
 
 func _draw_ship(rect: Rect2, color: Color, kind: String) -> void:
+	if kind == "Submarine":
+		var center := rect.get_center()
+		_draw_oval(center, Vector2(rect.size.x * 0.4, rect.size.y * 0.2), color)
+		draw_rect(Rect2(center + Vector2(-rect.size.x * 0.08, -rect.size.y * 0.3), rect.size * Vector2(0.16, 0.22)), color)
+		draw_line(center + Vector2(0, -rect.size.y * 0.3), center + Vector2(rect.size.x * 0.15, -rect.size.y * 0.42), Color("d9eff5"), maxf(1.5, zoom_level))
+		return
 	var hull := PackedVector2Array([rect.position + rect.size * Vector2(0.12, 0.62), rect.position + rect.size * Vector2(0.76, 0.62), rect.position + rect.size * Vector2(0.95, 0.48), rect.position + rect.size * Vector2(0.76, 0.8), rect.position + rect.size * Vector2(0.2, 0.8)])
 	draw_colored_polygon(hull, color)
 	draw_polyline(PackedVector2Array([hull[0], hull[1], hull[2], hull[3], hull[4], hull[0]]), Color("10263a"), maxf(1.5, zoom_level), true)
@@ -153,6 +180,13 @@ func _draw_aircraft(rect: Rect2, color: Color) -> void:
 	var plane := PackedVector2Array([rect.position + rect.size * Vector2(0.5, 0.08), rect.position + rect.size * Vector2(0.62, 0.4), rect.position + rect.size * Vector2(0.94, 0.56), rect.position + rect.size * Vector2(0.61, 0.6), rect.position + rect.size * Vector2(0.54, 0.9), rect.position + rect.size * Vector2(0.45, 0.9), rect.position + rect.size * Vector2(0.39, 0.6), rect.position + rect.size * Vector2(0.06, 0.56), rect.position + rect.size * Vector2(0.38, 0.4)])
 	draw_colored_polygon(plane, color)
 	draw_polyline(PackedVector2Array([plane[0], plane[1], plane[2], plane[3], plane[4], plane[5], plane[6], plane[7], plane[8], plane[0]]), Color("10263a"), maxf(1.5, zoom_level), true)
+
+func _draw_oval(center: Vector2, radius: Vector2, color: Color) -> void:
+	var points := PackedVector2Array()
+	for index in 24:
+		var angle := TAU * float(index) / 24.0
+		points.append(center + Vector2(cos(angle) * radius.x, sin(angle) * radius.y))
+	draw_colored_polygon(points, color)
 
 func _draw_hit_points(rect: Rect2, current_hp: int, max_hp: int) -> void:
 	var count := clampi(max_hp, 1, 6)
@@ -189,7 +223,7 @@ func _select_at(point: Vector2) -> void:
 	if not map_data.is_inside(cell): return
 	for unit in units:
 		var unit_cell: Vector2i = unit.get("cell", unit.get("grid", Vector2i(-1, -1)))
-		if unit_cell == cell:
+		if unit_cell == cell and _unit_is_visible(unit):
 			if not editor_mode:
 				unit_pressed.emit(unit["id"])
 				return
@@ -211,7 +245,7 @@ func _rebuild_overlays() -> void:
 		for y in map_data.height:
 			for x in map_data.width:
 				var cell := Vector2i(x, y)
-				if cell != origin and _unit_id_at(cell) == -1 and (map_data.terrain_at(cell) != "Mountain" or stats.get("air", false)) and _grid_distance(origin, cell) <= int(stats.get("move", 0)):
+				if cell != origin and _unit_id_at(cell) == -1 and map_data.can_unit_occupy(selected.get("kind", ""), stats.get("air", false), cell) and _shortest_movement_cost(selected, cell, stats) <= int(stats.get("move", 0)):
 					move_overlay.append(cell)
 	if not selected.get("attacked", false):
 		for unit in units:
@@ -234,8 +268,49 @@ func _unit_id_at(cell: Vector2i) -> int:
 func _grid_distance(a: Vector2i, b: Vector2i) -> int:
 	return abs(a.x - b.x) + abs(a.y - b.y)
 
+func _shortest_movement_cost(unit: Dictionary, destination: Vector2i, stats: Dictionary) -> int:
+	var origin: Vector2i = unit.get("grid", Vector2i(-1, -1))
+	var costs := {origin: 0}
+	var frontier: Array[Vector2i] = [origin]
+	while not frontier.is_empty():
+		var best_index := 0
+		for index in range(1, frontier.size()):
+			if int(costs[frontier[index]]) < int(costs[frontier[best_index]]):
+				best_index = index
+		var current: Vector2i = frontier.pop_at(best_index)
+		if current == destination:
+			return int(costs[current])
+		for direction in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
+			var next: Vector2i = current + direction
+			if not map_data.is_inside(next) or map_data.movement_cost(unit.get("kind", ""), stats.get("air", false), next) < 0:
+				continue
+			if next != destination and _unit_id_at(next) != -1:
+				continue
+			var next_cost: int = int(costs[current]) + map_data.movement_cost(unit.get("kind", ""), stats.get("air", false), next)
+			if next_cost > int(stats.get("move", 0)):
+				continue
+			if not costs.has(next) or next_cost < int(costs[next]):
+				costs[next] = next_cost
+				if next not in frontier:
+					frontier.append(next)
+	return 1000000
+
 func _can_attack(attacker: Dictionary, defender: Dictionary) -> bool:
+	if defender.get("submarine", false):
+		return attacker.get("detector", false)
 	return attacker.get("target", "") == "any" or (attacker.get("target", "") == "air" and defender.get("air", false)) or (attacker.get("target", "") == "surface" and not defender.get("air", false))
+
+func _unit_is_visible(unit: Dictionary) -> bool:
+	if unit.get("kind", "") != "Submarine" or unit.get("team_id", -1) == active_team_id or editor_mode:
+		return true
+	var cell: Vector2i = unit.get("grid", unit.get("cell", Vector2i(-1, -1)))
+	for detector in units:
+		if detector.get("team_id", -1) != active_team_id or detector.get("kind", "") != "Destroyer":
+			continue
+		var detector_cell: Vector2i = detector.get("grid", detector.get("cell", Vector2i(-1, -1)))
+		if _grid_distance(detector_cell, cell) <= int(unit_stats.get("Destroyer", {}).get("range", 2)):
+			return true
+	return false
 
 func world_to_grid(point: Vector2) -> Vector2i:
 	return Vector2i(floori((point.x - pan.x) / (BASE_CELL_SIZE * zoom_level)), floori((point.y - pan.y) / (BASE_CELL_SIZE * zoom_level)))

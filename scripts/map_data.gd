@@ -5,8 +5,8 @@ const VERSION := 1
 const MIN_SIZE := 10
 const MAX_SIZE := 100
 const MAP_SIZES := [10, 15, 20, 25, 30, 40, 50, 75, 100]
-const TERRAIN_TYPES := ["Water", "Shore", "Land", "Mountain", "Reef", "River"]
-const UNIT_TYPES := ["Patrol", "Destroyer", "Aircraft Carrier", "Anti-Air Boat", "Jet", "Fighter", "Bomber"]
+const TERRAIN_TYPES := ["Water", "Shore", "Land", "Mountain", "Snow Mountain", "Reef", "River"]
+const UNIT_TYPES := ["Patrol", "Destroyer", "Submarine", "Aircraft Carrier", "Anti-Air Boat", "Jet", "Fighter", "Bomber"]
 const AIR_UNIT_TYPES := ["Jet", "Fighter", "Bomber"]
 const INVALID_CELL := Vector2i(-1, -1)
 
@@ -28,6 +28,7 @@ static func default_map():
 	var map = load("res://scripts/map_data.gd").new(10, 10, 260)
 	for cell in [Vector2i(2, 2), Vector2i(5, 1), Vector2i(1, 4)]:
 		map.set_terrain(cell, "Mountain")
+	map.set_terrain(Vector2i(5, 2), "Snow Mountain")
 	for cell in [Vector2i(3, 3), Vector2i(5, 4), Vector2i(2, 6)]:
 		map.set_terrain(cell, "Reef")
 	for cell in [Vector2i(4, 1), Vector2i(6, 2)]:
@@ -155,8 +156,8 @@ func validation_errors() -> PackedStringArray:
 		if unit_cells.has(key):
 			errors.append("Starting units must use unique cells.")
 		unit_cells[key] = true
-		if terrain_at(cell) == "Mountain" and not kind in AIR_UNIT_TYPES:
-			errors.append("Only air units can start on mountain terrain.")
+		if not can_unit_occupy(kind, kind in AIR_UNIT_TYPES, cell):
+			errors.append("That starting unit cannot occupy its terrain.")
 	return errors
 
 func copy():
@@ -171,6 +172,25 @@ func terrain_at(cell: Vector2i) -> String:
 func set_terrain(cell: Vector2i, terrain_type: String) -> void:
 	if is_inside(cell) and terrain_type in TERRAIN_TYPES:
 		terrain[cell.y * width + cell.x] = terrain_type
+
+func movement_cost(kind: String, is_air: bool, cell: Vector2i) -> int:
+	var terrain_type := terrain_at(cell)
+	if is_air:
+		if terrain_type == "Snow Mountain":
+			return 3
+		if terrain_type == "Mountain":
+			return 2
+		return 1
+	if terrain_type in ["Land", "Mountain", "Snow Mountain"]:
+		return -1
+	if terrain_type == "Shore":
+		return 2
+	return 1
+
+func can_unit_occupy(kind: String, is_air: bool, cell: Vector2i) -> bool:
+	if movement_cost(kind, is_air, cell) < 0:
+		return false
+	return terrain_at(cell) != "River" or is_air or kind == "Patrol"
 
 func place_port(team_id: int, cell: Vector2i) -> bool:
 	if team_id < 0 or team_id > 7 or not is_inside(cell):
@@ -193,7 +213,7 @@ func remove_port_at(cell: Vector2i) -> bool:
 	return false
 
 func place_starting_unit(kind: String, team_id: int, cell: Vector2i) -> bool:
-	if not kind in UNIT_TYPES or not is_inside(cell) or terrain_at(cell) == "Mountain" and not kind in AIR_UNIT_TYPES:
+	if not kind in UNIT_TYPES or not is_inside(cell) or not can_unit_occupy(kind, kind in AIR_UNIT_TYPES, cell):
 		return false
 	for index in starting_units.size():
 		if starting_units[index]["cell"] == cell:
