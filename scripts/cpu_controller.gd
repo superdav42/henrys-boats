@@ -43,7 +43,9 @@ static func _legal_step_towards_target(unit: Dictionary, state, unit_stats: Dict
 	var best_distance := _distance(unit["grid"], target)
 	for direction in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var candidate: Vector2i = unit["grid"] + direction
-		if not state.map_data.is_inside(candidate) or state.unit_id_at(candidate) != -1 or state.map_data.terrain_at(candidate) == "Mountain" and not stats["air"]:
+		if not state.map_data.is_inside(candidate) or state.unit_id_at(candidate) != -1:
+			continue
+		if not state.map_data.can_unit_occupy(unit["kind"], stats["air"], candidate) or state.map_data.movement_cost(unit["kind"], stats["air"], candidate) > int(stats["move"]):
 			continue
 		var distance := _distance(candidate, target)
 		if distance < best_distance:
@@ -71,6 +73,8 @@ static func _nearest_enemy_or_port(unit: Dictionary, state) -> Vector2i:
 	return target
 
 static func _can_attack(attacker: Dictionary, defender: Dictionary) -> bool:
+	if defender.get("submarine", false):
+		return attacker.get("detector", false)
 	return attacker["target"] == "any" or (attacker["target"] == "air" and defender["air"]) or (attacker["target"] == "surface" and not defender["air"])
 
 static func _distance(a: Vector2i, b: Vector2i) -> int:

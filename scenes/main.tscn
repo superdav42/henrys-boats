@@ -110,15 +110,19 @@ custom_minimum_size = Vector2(128, 64)
 text = "Build PT\n$100"
 
 [node name="DestroyerButton" type="Button" parent="Hud/BuildPanel"]
-custom_minimum_size = Vector2(150, 64)
+custom_minimum_size = Vector2(120, 64)
 text = "Build DD\n$180"
 
+[node name="SubmarineButton" type="Button" parent="Hud/BuildPanel"]
+custom_minimum_size = Vector2(120, 64)
+text = "Build SUB\n$400"
+
 [node name="CarrierButton" type="Button" parent="Hud/BuildPanel"]
-custom_minimum_size = Vector2(160, 64)
+custom_minimum_size = Vector2(130, 64)
 text = "Build AC\n$300"
 
 [node name="AntiAirButton" type="Button" parent="Hud/BuildPanel"]
-custom_minimum_size = Vector2(160, 64)
+custom_minimum_size = Vector2(130, 64)
 text = "Build AAB\n$220"
 
 [node name="AirPanel" type="HBoxContainer" parent="Hud"]

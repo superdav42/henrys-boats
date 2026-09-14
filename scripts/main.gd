@@ -12,7 +12,8 @@ const UpgradeCatalogResource = preload("res://scripts/upgrade_catalog.gd")
 
 const UNIT_STATS := {
 	"Patrol": {"cost": 100, "hp": 3, "move": 3, "range": 1, "damage": 1, "short": "PT", "air": false, "target": "any"},
-	"Destroyer": {"cost": 180, "hp": 4, "move": 2, "range": 2, "damage": 2, "short": "DD", "air": false, "target": "any"},
+	"Destroyer": {"cost": 180, "hp": 4, "move": 2, "range": 2, "damage": 2, "short": "DD", "air": false, "target": "any", "detector": true},
+	"Submarine": {"cost": 400, "hp": 3, "move": 2, "range": 2, "damage": 2, "short": "SUB", "air": false, "target": "any", "submarine": true},
 	"Aircraft Carrier": {"cost": 300, "hp": 6, "move": 1, "range": 2, "damage": 1, "short": "AC", "air": false, "target": "any"},
 	"Anti-Air Boat": {"cost": 220, "hp": 4, "move": 2, "range": 3, "damage": 4, "short": "AAB", "air": false, "target": "air"},
 	"Jet": {"cost": 120, "hp": 2, "move": 4, "range": 2, "damage": 2, "short": "JET", "air": true, "target": "any"},
@@ -37,6 +38,7 @@ var unit_stats: Dictionary = UNIT_STATS.duplicate(true)
 @onready var end_turn_button: Button = $Hud/EndTurnButton
 @onready var patrol_button: Button = $Hud/BuildPanel/PatrolButton
 @onready var destroyer_button: Button = $Hud/BuildPanel/DestroyerButton
+@onready var submarine_button: Button = $Hud/BuildPanel/SubmarineButton
 @onready var carrier_button: Button = $Hud/BuildPanel/CarrierButton
 @onready var anti_air_button: Button = $Hud/BuildPanel/AntiAirButton
 @onready var jet_button: Button = $Hud/AirPanel/JetButton
@@ -59,6 +61,7 @@ func _connect_buttons() -> void:
 	end_turn_button.pressed.connect(_end_player_turn)
 	patrol_button.pressed.connect(_build_boat.bind("Patrol"))
 	destroyer_button.pressed.connect(_build_boat.bind("Destroyer"))
+	submarine_button.pressed.connect(_build_boat.bind("Submarine"))
 	carrier_button.pressed.connect(_build_boat.bind("Aircraft Carrier"))
 	anti_air_button.pressed.connect(_build_boat.bind("Anti-Air Boat"))
 	jet_button.pressed.connect(_build_air_from_selected_ac.bind("Jet"))
@@ -314,7 +317,7 @@ func _player_input_locked() -> bool:
 
 func _refresh_controls() -> void:
 	var locked := _player_input_locked()
-	for button in [end_turn_button, patrol_button, destroyer_button, carrier_button, anti_air_button, jet_button, fighter_button, bomber_button, map_editor_button]:
+	for button in [end_turn_button, patrol_button, destroyer_button, submarine_button, carrier_button, anti_air_button, jet_button, fighter_button, bomber_button, map_editor_button]:
 		button.disabled = locked
 
 func _first_open_neighbor(cell: Vector2i, stats: Dictionary) -> Vector2i:
@@ -328,15 +331,21 @@ func _grid_distance(a: Vector2i, b: Vector2i) -> int:
 	return abs(a.x - b.x) + abs(a.y - b.y)
 
 func _can_occupy_terrain(stats: Dictionary, cell: Vector2i) -> bool:
-	return state.map_data.terrain_at(cell) != "Mountain" or stats["air"]
+	return state.map_data.can_unit_occupy("Aircraft" if stats["air"] else "Patrol", stats["air"], cell)
 
 func _can_attack(attacker: Dictionary, defender: Dictionary) -> bool:
+	if defender.get("submarine", false):
+		return attacker.get("detector", false)
 	return attacker["target"] == "any" or (attacker["target"] == "air" and defender["air"]) or (attacker["target"] == "surface" and not defender["air"])
 
 func _defense_for(unit: Dictionary) -> int:
 	var stats: Dictionary = unit_stats[unit["kind"]]
 	var terrain: String = state.map_data.terrain_at(unit["grid"])
-	return 2 if stats["air"] and terrain == "Mountain" else (1 if not stats["air"] and terrain == "Reef" else 0)
+	if stats["air"] and terrain == "Snow Mountain":
+		return 3
+	if stats["air"] and terrain == "Mountain":
+		return 2
+	return 1 if not stats["air"] and terrain == "Reef" else 0
 
 func _finish_game(winner: int, message: String) -> void:
 	game_over = true
@@ -401,6 +410,7 @@ func _terrain_description(terrain: String) -> String:
 		"Shore": return "sandy coastal shallows"
 		"Land": return "green land"
 		"Mountain": return "mountain terrain"
+		"Snow Mountain": return "snow-capped mountain terrain"
 		"Reef": return "shallow coral reef"
 		"River": return "river channel"
 		_: return "open water"
@@ -408,4 +418,5 @@ func _terrain_description(terrain: String) -> String:
 func _terrain_defense_description(terrain: String) -> String:
 	if terrain == "Reef": return "Reef gives surface units +1 defence."
 	if terrain == "Mountain": return "Mountain gives air units +2 defence."
+	if terrain == "Snow Mountain": return "Snow-capped mountain gives air units +3 defence."
 	return "%s gives no terrain defence." % terrain

@@ -37,7 +37,8 @@ func _ready() -> void:
 	money_input.min_value = 0
 	money_input.max_value = 100000
 	board.cell_pressed.connect(_on_cell_pressed)
-	set_map(MapDataResource.default_map())
+	set_map(MapDataResource.new(10, 10, 260))
+	_update_tool_controls()
 
 func set_map(map_data) -> void:
 	working_map = map_data.copy()
@@ -69,6 +70,15 @@ func _on_cell_pressed(cell: Vector2i) -> void:
 func _on_money_changed(value: float) -> void:
 	working_map.starting_money = int(value)
 	_update_status()
+
+func _on_tool_selected(_index: int) -> void:
+	_update_tool_controls()
+
+func _update_tool_controls() -> void:
+	var tool := tool_select.get_item_text(tool_select.selected)
+	terrain_select.visible = tool == "Terrain"
+	team_select.visible = tool in ["Port", "Starting unit"]
+	unit_select.visible = tool == "Starting unit"
 
 func _on_size_selected(index: int) -> void:
 	var size := size_select.get_item_id(index)

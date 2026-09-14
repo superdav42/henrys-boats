@@ -133,7 +133,11 @@ func _execute_move(command: Dictionary, unit_stats: Dictionary) -> Dictionary:
 	if unit.is_empty() or unit["team_id"] != current_team().id or unit["moved"]:
 		return {"ok": false, "message": "Unit cannot move."}
 	var stats: Dictionary = unit_stats[unit["kind"]]
-	if not map_data.is_inside(destination) or unit_id_at(destination) != -1 or map_data.terrain_at(destination) == "Mountain" and not stats["air"] or _grid_distance(unit["grid"], destination) > stats["move"]:
+	if not map_data.is_inside(destination) or unit_id_at(destination) != -1:
+		return {"ok": false, "message": "Move is not legal."}
+	if not map_data.can_unit_occupy(unit["kind"], stats["air"], destination):
+		return {"ok": false, "message": "%s cannot stop on %s." % [unit["kind"], map_data.terrain_at(destination)]}
+	if _shortest_movement_cost(unit, destination, stats) > int(stats["move"]):
 		return {"ok": false, "message": "Move is not legal."}
 	set_unit_grid(unit_id, destination)
 	set_unit_flag(unit_id, "moved", true)
@@ -161,19 +165,52 @@ func _execute_attack(command: Dictionary, unit_stats: Dictionary) -> Dictionary:
 		return {"ok": true, "message": "%s destroyed an enemy unit." % current_team().name, "damage": damage, "destroyed": true}
 	return {"ok": true, "message": "%s hit %s for %d damage." % [current_team().name, defender["kind"], damage], "damage": damage}
 
+func _shortest_movement_cost(unit: Dictionary, destination: Vector2i, stats: Dictionary) -> int:
+	var origin: Vector2i = unit["grid"]
+	var costs := {origin: 0}
+	var frontier: Array[Vector2i] = [origin]
+	while not frontier.is_empty():
+		var best_index := 0
+		for index in range(1, frontier.size()):
+			if int(costs[frontier[index]]) < int(costs[frontier[best_index]]):
+				best_index = index
+		var current: Vector2i = frontier.pop_at(best_index)
+		if current == destination:
+			return int(costs[current])
+		for direction in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
+			var next: Vector2i = current + direction
+			if not map_data.is_inside(next) or map_data.movement_cost(unit["kind"], stats["air"], next) < 0:
+				continue
+			if next != destination and unit_id_at(next) != -1:
+				continue
+			var next_cost: int = int(costs[current]) + map_data.movement_cost(unit["kind"], stats["air"], next)
+			if next_cost > int(stats["move"]):
+				continue
+			if not costs.has(next) or next_cost < int(costs[next]):
+				costs[next] = next_cost
+				if next not in frontier:
+					frontier.append(next)
+	return 1000000
+
 func _grid_distance(a: Vector2i, b: Vector2i) -> int:
 	return abs(a.x - b.x) + abs(a.y - b.y)
 
 func _first_open_neighbor(cell: Vector2i, stats: Dictionary) -> Vector2i:
 	for direction in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var candidate: Vector2i = cell + direction
-		if map_data.is_inside(candidate) and unit_id_at(candidate) == -1 and (map_data.terrain_at(candidate) != "Mountain" or stats["air"]):
+		if map_data.is_inside(candidate) and unit_id_at(candidate) == -1 and map_data.can_unit_occupy("Aircraft", stats["air"], candidate):
 			return candidate
 	return Vector2i(-1, -1)
 
 func _can_attack(attacker: Dictionary, defender: Dictionary) -> bool:
+	if defender.get("submarine", false):
+		return attacker.get("detector", false)
 	return attacker["target"] == "any" or (attacker["target"] == "air" and defender["air"]) or (attacker["target"] == "surface" and not defender["air"])
 
 func _defense_for(unit: Dictionary, stats: Dictionary) -> int:
 	var terrain: String = map_data.terrain_at(unit["grid"])
-	return 2 if stats["air"] and terrain == "Mountain" else (1 if not stats["air"] and terrain == "Reef" else 0)
+	if stats["air"] and terrain == "Snow Mountain":
+		return 3
+	if stats["air"] and terrain == "Mountain":
+		return 2
+	return 1 if not stats["air"] and terrain == "Reef" else 0

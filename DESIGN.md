@@ -76,7 +76,9 @@ Buttons and inputs use 8px corners; grouped menu panels may use 16px corners. Do
 - Selection controls use the surface colour and bright text; errors remain visible until the player makes a corrective action.
 - The in-match inspector uses a dark surface card with text labels for terrain, unit facts, and defence. Legal movement uses green overlays; legal attacks use coral overlays, and neither colour is the only source of meaning because the inspector and invalid-action message explain the rules.
 - Board terrain is illustrated with moving wave strokes for water, sand bands for shore, grass marks for land, peaked mountains, coral reef clusters, and a bright river channel. These patterns remain distinct at zoomed-out sizes.
+- Shore tiles blend water and sand by adjacency: each edge facing land or either mountain type extends the sandy half of the tile, while edges facing water or reef retain visible water and foam. Snow-capped mountains use bright white peaks and remain distinct from ordinary mountains.
 - Surface units use hull and bridge silhouettes; air units use winged aircraft silhouettes. Team colour fills the silhouette while a dark outline, short type code, and HP pips provide non-colour identification. A white diamond identifies the selected unit, and move/attack overlays carry `M`/`A` markers as well as their colours.
+- Submarines use a low oval hull and conning-tower silhouette. Enemy submarines remain hidden unless they are within a friendly destroyer's two-tile detection/attack range.
 - The read-only inspector identifies the selected tile or unit, terrain, team, unit type, HP, movement, range, attack, target rules, defence, and the current legal move/attack count.
 
 ### Navigation
