@@ -1,6 +1,7 @@
 extends SceneTree
 
 const MapDataResource = preload("res://scripts/map_data.gd")
+const MapBoardResource = preload("res://scripts/map_board.gd")
 const GameStateResource = preload("res://scripts/game_state.gd")
 const TeamDataResource = preload("res://scripts/team_data.gd")
 
@@ -10,6 +11,7 @@ func _initialize() -> void:
 	_test_terrain_rules()
 	_test_movement_costs()
 	_test_submarine_combat()
+	_test_board_presentation()
 	call_deferred("_finish")
 
 func _expect(condition: bool, message: String) -> void:
@@ -52,6 +54,19 @@ func _test_submarine_combat() -> void:
 	_expect(state._can_attack(destroyer, submarine), "Destroyers must be able to attack submarines.")
 	_expect(not state._can_attack(patrol, submarine), "Non-destroyers must not damage submarines.")
 	_expect(state._can_attack(submarine, patrol), "Submarines must be able to attack surface units.")
+
+func _test_board_presentation() -> void:
+	var draft = MapDataResource.new(10, 10, 260)
+	var draft_copy = draft.copy()
+	_expect(draft_copy != null, "Incomplete editor drafts must remain copyable before ports are placed.")
+	var board = MapBoardResource.new()
+	board.set_editor_map(MapDataResource.new(100, 100, 260))
+	var map_rect := Rect2(board.pan, Vector2(100, 100) * board.BASE_CELL_SIZE * board.zoom_level)
+	_expect(board.view_rect.encloses(map_rect), "The full 100x100 map must fit inside the board view.")
+	var editor = load("res://scenes/map_editor.tscn").instantiate()
+	_expect(editor.get_node("BackgroundLayer").layer < 0, "The editor background must render on a canvas layer below the map.")
+	editor.free()
+	board.free()
 
 func _finish() -> void:
 	quit(1 if failures > 0 else 0)

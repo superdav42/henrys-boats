@@ -5,8 +5,10 @@ signal cell_pressed(cell: Vector2i)
 signal unit_pressed(unit_id: int)
 
 const BASE_CELL_SIZE := 64.0
-const MIN_ZOOM := 0.25
+const MIN_ZOOM := 0.05
 const MAX_ZOOM := 2.0
+const DETAILED_TERRAIN_MIN_ZOOM := 0.25
+@export var view_rect := Rect2(24, 270, 672, 520)
 var map_data
 var units: Array[Dictionary] = []
 var selected_unit_id := -1
@@ -22,33 +24,53 @@ var drag_origin := Vector2.ZERO
 var water_phase := 0.0
 
 func set_match(new_map, new_units: Array[Dictionary], selected_id: int, team_id: int, stats: Dictionary) -> void:
+	var should_fit: bool = map_data != new_map
+	visible = true
 	map_data = new_map
 	units = new_units
 	selected_unit_id = selected_id
 	active_team_id = team_id
 	unit_stats = stats
 	editor_mode = false
+	if should_fit:
+		_fit_map_to_view()
 	_rebuild_overlays()
 	queue_redraw()
 
 func set_editor_map(new_map) -> void:
+	var should_fit: bool = map_data != new_map
+	visible = true
 	map_data = new_map
 	units = new_map.starting_units
 	selected_unit_id = -1
 	active_team_id = 0
 	unit_stats = {}
 	editor_mode = true
+	if should_fit:
+		_fit_map_to_view()
 	move_overlay.clear()
 	attack_overlay.clear()
 	queue_redraw()
 
+func _fit_map_to_view() -> void:
+	if map_data == null or map_data.width <= 0 or map_data.height <= 0:
+		return
+	var padding := 8.0
+	var available := view_rect.size - Vector2.ONE * padding * 2.0
+	var map_size := Vector2(map_data.width, map_data.height) * BASE_CELL_SIZE
+	zoom_level = clampf(minf(available.x / map_size.x, available.y / map_size.y), MIN_ZOOM, MAX_ZOOM)
+	var fitted_size := map_size * zoom_level
+	pan = view_rect.position + (view_rect.size - fitted_size) * 0.5
+
 func _process(delta: float) -> void:
-	if visible and map_data != null:
+	if visible and map_data != null and zoom_level >= DETAILED_TERRAIN_MIN_ZOOM:
 		water_phase = fmod(water_phase + delta, 6.0)
 		queue_redraw()
 
 func _draw() -> void:
 	if map_data == null: return
+	var board_rect := Rect2(pan, Vector2(map_data.width, map_data.height) * BASE_CELL_SIZE * zoom_level)
+	draw_rect(board_rect.grow(8.0 * zoom_level), Color("071827", 0.82))
 	for y in map_data.height:
 		for x in map_data.width:
 			var cell := Vector2i(x, y)
@@ -67,8 +89,12 @@ func _draw() -> void:
 		if not map_data.is_inside(cell) or not _unit_is_visible(unit):
 			continue
 		_draw_unit(_cell_rect(cell), unit)
+	draw_rect(board_rect, Color("b9edff"), false, maxf(3.0, 3.0 * zoom_level))
 
 func _draw_terrain(rect: Rect2, terrain: String, cell: Vector2i) -> void:
+	if zoom_level < DETAILED_TERRAIN_MIN_ZOOM:
+		draw_rect(rect, _terrain_base_color(terrain))
+		return
 	match terrain:
 		"Shore":
 			_draw_shore(rect, cell)
@@ -97,6 +123,17 @@ func _draw_terrain(rect: Rect2, terrain: String, cell: Vector2i) -> void:
 			draw_polyline(river, Color("68c9e8"), 5.0 * zoom_level, true)
 		_:
 			_draw_water(rect)
+
+func _terrain_base_color(terrain: String) -> Color:
+	match terrain:
+		"Shore": return Color("dcbf77")
+		"Land": return Color("4b8a4b")
+		"Mountain": return Color("6f7478")
+		"Snow Mountain": return Color("dce8ed")
+		"Forest": return Color("28613b")
+		"Reef": return Color("38a897")
+		"River": return Color("4e91ad")
+		_: return Color("176a9f")
 
 func _draw_shore(rect: Rect2, cell: Vector2i) -> void:
 	_draw_water(rect)
@@ -147,6 +184,7 @@ func _draw_unit(cell_rect: Rect2, unit: Dictionary) -> void:
 	var rect := cell_rect.grow(-7.0 * zoom_level)
 	var stats: Dictionary = unit_stats.get(unit.get("kind", ""), {})
 	var color := _team_color(int(unit.get("team_id", 0)))
+	draw_circle(rect.get_center(), rect.size.x * 0.43, Color("f4fbff", 0.22))
 	var is_air: bool = bool(stats.get("air", unit.get("kind", "") in ["Jet", "Fighter", "Bomber"]))
 	if is_air:
 		_draw_aircraft(rect, color)
