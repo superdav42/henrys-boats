@@ -7,6 +7,7 @@ signal unit_pressed(unit_id: int)
 const BASE_CELL_SIZE := 64.0
 const MIN_ZOOM := 0.05
 const MAX_ZOOM := 2.0
+const DETAILED_TERRAIN_MIN_ZOOM := 0.25
 @export var view_rect := Rect2(24, 270, 672, 520)
 var map_data
 var units: Array[Dictionary] = []
@@ -24,6 +25,7 @@ var water_phase := 0.0
 
 func set_match(new_map, new_units: Array[Dictionary], selected_id: int, team_id: int, stats: Dictionary) -> void:
 	var should_fit: bool = map_data != new_map
+	visible = true
 	map_data = new_map
 	units = new_units
 	selected_unit_id = selected_id
@@ -37,6 +39,7 @@ func set_match(new_map, new_units: Array[Dictionary], selected_id: int, team_id:
 
 func set_editor_map(new_map) -> void:
 	var should_fit: bool = map_data != new_map
+	visible = true
 	map_data = new_map
 	units = new_map.starting_units
 	selected_unit_id = -1
@@ -60,7 +63,7 @@ func _fit_map_to_view() -> void:
 	pan = view_rect.position + (view_rect.size - fitted_size) * 0.5
 
 func _process(delta: float) -> void:
-	if visible and map_data != null:
+	if visible and map_data != null and zoom_level >= DETAILED_TERRAIN_MIN_ZOOM:
 		water_phase = fmod(water_phase + delta, 6.0)
 		queue_redraw()
 
@@ -89,6 +92,9 @@ func _draw() -> void:
 	draw_rect(board_rect, Color("b9edff"), false, maxf(3.0, 3.0 * zoom_level))
 
 func _draw_terrain(rect: Rect2, terrain: String, cell: Vector2i) -> void:
+	if zoom_level < DETAILED_TERRAIN_MIN_ZOOM:
+		draw_rect(rect, _terrain_base_color(terrain))
+		return
 	match terrain:
 		"Shore":
 			_draw_shore(rect, cell)
@@ -117,6 +123,17 @@ func _draw_terrain(rect: Rect2, terrain: String, cell: Vector2i) -> void:
 			draw_polyline(river, Color("68c9e8"), 5.0 * zoom_level, true)
 		_:
 			_draw_water(rect)
+
+func _terrain_base_color(terrain: String) -> Color:
+	match terrain:
+		"Shore": return Color("dcbf77")
+		"Land": return Color("4b8a4b")
+		"Mountain": return Color("6f7478")
+		"Snow Mountain": return Color("dce8ed")
+		"Forest": return Color("28613b")
+		"Reef": return Color("38a897")
+		"River": return Color("4e91ad")
+		_: return Color("176a9f")
 
 func _draw_shore(rect: Rect2, cell: Vector2i) -> void:
 	_draw_water(rect)

@@ -161,7 +161,13 @@ func validation_errors() -> PackedStringArray:
 	return errors
 
 func copy():
-	return from_dictionary(to_dictionary())
+	var duplicate_map = get_script().new(width, height, starting_money)
+	duplicate_map.terrain = terrain.duplicate()
+	for port in ports:
+		duplicate_map.ports.append(port.duplicate(true))
+	for unit in starting_units:
+		duplicate_map.starting_units.append(unit.duplicate(true))
+	return duplicate_map
 
 func is_inside(cell: Vector2i) -> bool:
 	return cell.x >= 0 and cell.x < width and cell.y >= 0 and cell.y < height

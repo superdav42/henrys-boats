@@ -56,12 +56,15 @@ func _test_submarine_combat() -> void:
 	_expect(state._can_attack(submarine, patrol), "Submarines must be able to attack surface units.")
 
 func _test_board_presentation() -> void:
+	var draft = MapDataResource.new(10, 10, 260)
+	var draft_copy = draft.copy()
+	_expect(draft_copy != null, "Incomplete editor drafts must remain copyable before ports are placed.")
 	var board = MapBoardResource.new()
 	board.set_editor_map(MapDataResource.new(100, 100, 260))
 	var map_rect := Rect2(board.pan, Vector2(100, 100) * board.BASE_CELL_SIZE * board.zoom_level)
 	_expect(board.view_rect.encloses(map_rect), "The full 100x100 map must fit inside the board view.")
 	var editor = load("res://scenes/map_editor.tscn").instantiate()
-	_expect(editor.get_node("Background").z_index < editor.get_node("MapBoard").z_index, "The editor map must render above its background.")
+	_expect(editor.get_node("BackgroundLayer").layer < 0, "The editor background must render on a canvas layer below the map.")
 	editor.free()
 	board.free()
 
