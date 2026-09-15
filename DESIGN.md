@@ -37,6 +37,8 @@ components:
 
 - Use one clear primary action per screen.
 - Keep game-critical labels legible over the board and avoid decorative UI that competes with pieces.
+- Use a clearly lighter teal page background behind the framed blue map so an empty-water board never disappears into the surrounding canvas.
+- Auto-fit the complete map inside the available play area when a match or editor map opens; zoom and pan remain optional detail controls rather than requirements for seeing the map.
 
 ## 2. Colors
 
